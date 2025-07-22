@@ -17,12 +17,8 @@ form.addEventListener('change', (ev) => {
   if (ev.target.name === 'chosen-image') {
     if (ev.target.value === 'uploaded') {
       fileUploadSection.style.display = 'block';
-      // Immediate feedback if no image is uploaded
-      if (!uploadedImageData) {
-        output.textContent = 'Please upload an image to continue.';
-      } else {
-        output.textContent = '';
-      }
+      // Clear any previous messages when switching to upload mode
+      output.textContent = '';
     } else {
       fileUploadSection.style.display = 'none';
       output.textContent = '';
@@ -61,7 +57,8 @@ form.onsubmit = async (ev) => {
   try {
     let imageBase64;
     let mimeType = 'image/jpeg';
-    let selectedImageValue = form.elements.namedItem('chosen-image').value;
+    let selectedImageValue = form.elements.namedItem('chosen-image')?.value;
+    let hasImage = false;
 
     if (selectedImageValue === 'uploaded') {
       // Use uploaded image
@@ -71,7 +68,8 @@ form.onsubmit = async (ev) => {
       }
       imageBase64 = uploadedImageData.base64;
       mimeType = uploadedImageData.mimeType;
-    } else {
+      hasImage = true;
+    } else if (selectedImageValue && selectedImageValue !== 'none') {
       // Use predefined image with caching
       let imageUrl = selectedImageValue;
       if (!window._imageBase64Cache) window._imageBase64Cache = {};
@@ -83,16 +81,19 @@ form.onsubmit = async (ev) => {
           .then(a => base64js.fromByteArray(new Uint8Array(a)));
         window._imageBase64Cache[imageUrl] = imageBase64;
       }
+      hasImage = true;
     }
 
-    // Assemble the prompt by combining the text with the chosen image
+    // Assemble the prompt - include image only if one is selected
+    let parts = [{ text: promptInput.value }];
+    if (hasImage) {
+      parts.unshift({ inline_data: { mime_type: mimeType, data: imageBase64, } });
+    }
+
     let contents = [
       {
         role: 'user',
-        parts: [
-          { inline_data: { mime_type: mimeType, data: imageBase64, } },
-          { text: promptInput.value }
-        ]
+        parts: parts
       }
     ];
 

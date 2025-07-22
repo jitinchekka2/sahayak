@@ -165,6 +165,31 @@ button:hover {
   color: var(--accent-color);
 }
 
+.text-only-choice .text-only-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 14px;
+  min-height: 80px;
+}
+
+.text-only-choice .text-only-placeholder span:first-child {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.text-only-choice:has(:checked) .text-only-placeholder {
+  border-color: var(--accent-color);
+  background-color: #e3f2fd;
+  color: var(--accent-color);
+}
+
 .upload-choice .uploaded-preview {
   width: 100%;
   height: auto;
