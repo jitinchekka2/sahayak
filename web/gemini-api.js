@@ -3,7 +3,7 @@
  * parts, streaming output (as a generator function).
  */
 export async function* streamGemini({
-  model = 'gemini-2.0-flash-preview-image-generation', // or gemini-1.5-pro
+  model = 'gemini-1.5-pro', // or gemini-1.5-flash
     contents = [],
   
 } = {}) {
