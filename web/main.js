@@ -1,116 +1,219 @@
 import { streamGemini } from './gemini-api.js';
 
-let form = document.querySelector('form');
-let promptInput = document.querySelector('input[name="prompt"]');
-let output = document.querySelector('.output');
-let fileUploadSection = document.querySelector('.file-upload');
-let imageUpload = document.querySelector('#image-upload');
-let uploadChoice = document.querySelector('input[value="uploaded"]');
-let uploadedPreview = document.querySelector('.uploaded-preview');
-let uploadPlaceholder = document.querySelector('.upload-placeholder');
+// DOM elements
+const form = document.querySelector('.chat-input-form');
+const messageInput = document.querySelector('.message-input');
+const chatMessages = document.querySelector('.chat-messages');
+const attachButton = document.querySelector('#attach-button');
+const imageUpload = document.querySelector('#image-upload');
+const attachedImageDiv = document.querySelector('#attached-image');
+const attachedPreview = document.querySelector('#attached-preview');
+const removeAttachmentBtn = document.querySelector('#remove-attachment');
+const sendButton = document.querySelector('.send-btn');
 
-// Store uploaded image data
-let uploadedImageData = null;
+// State
+let attachedImageData = null;
 
-// Handle radio button changes to show/hide file upload section
-form.addEventListener('change', (ev) => {
-  if (ev.target.name === 'chosen-image') {
-    if (ev.target.value === 'uploaded') {
-      fileUploadSection.style.display = 'block';
-      // Clear any previous messages when switching to upload mode
-      output.textContent = '';
-    } else {
-      fileUploadSection.style.display = 'none';
-      output.textContent = '';
-    }
-  }
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  messageInput.focus();
+  scrollToBottom();
 });
 
-// Handle file upload
-imageUpload.addEventListener('change', (ev) => {
-  const file = ev.target.files[0];
+// Handle attach button click
+attachButton.addEventListener('click', () => {
+  imageUpload.click();
+});
+
+// Handle file selection
+imageUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
   if (file && file.type.startsWith('image/')) {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      // Store the base64 data (remove the data:image/...;base64, prefix)
-      uploadedImageData = {
-        base64: e.target.result.split(',')[1],
-        mimeType: file.type
+    reader.onload = (event) => {
+      attachedImageData = {
+        base64: event.target.result.split(',')[1],
+        mimeType: file.type,
+        dataUrl: event.target.result
       };
 
       // Show preview
-      uploadedPreview.src = e.target.result;
-      uploadedPreview.style.display = 'block';
-      uploadPlaceholder.style.display = 'none';
-
-      // Automatically select the upload option
-      uploadChoice.checked = true;
+      attachedPreview.src = event.target.result;
+      attachedImageDiv.style.display = 'block';
     };
     reader.readAsDataURL(file);
   }
 });
 
-form.onsubmit = async (ev) => {
-  ev.preventDefault();
-  output.textContent = 'Generating...';
+// Handle remove attachment
+removeAttachmentBtn.addEventListener('click', () => {
+  attachedImageData = null;
+  attachedImageDiv.style.display = 'none';
+  imageUpload.value = '';
+});
+
+// Handle form submission
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const message = messageInput.value.trim();
+  if (!message && !attachedImageData) return;
+
+  // Disable form
+  messageInput.disabled = true;
+  sendButton.disabled = true;
+
+  // Add user message to chat
+  addUserMessage(message, attachedImageData?.dataUrl);
+
+  // Clear input and attachment
+  messageInput.value = '';
+  const currentAttachment = attachedImageData;
+  attachedImageData = null;
+  attachedImageDiv.style.display = 'none';
+  imageUpload.value = '';
+
+  // Show typing indicator
+  const typingElement = addTypingIndicator();
 
   try {
-    let imageBase64;
-    let mimeType = 'image/jpeg';
-    let selectedImageValue = form.elements.namedItem('chosen-image')?.value;
-    let hasImage = false;
-
-    if (selectedImageValue === 'uploaded') {
-      // Use uploaded image
-      if (!uploadedImageData) {
-        output.textContent = 'Please upload an image first.';
-        return;
-      }
-      imageBase64 = uploadedImageData.base64;
-      mimeType = uploadedImageData.mimeType;
-      hasImage = true;
-    } else if (selectedImageValue && selectedImageValue !== 'none') {
-      // Use predefined image with caching
-      let imageUrl = selectedImageValue;
-      if (!window._imageBase64Cache) window._imageBase64Cache = {};
-      if (window._imageBase64Cache[imageUrl]) {
-        imageBase64 = window._imageBase64Cache[imageUrl];
-      } else {
-        imageBase64 = await fetch(imageUrl)
-          .then(r => r.arrayBuffer())
-          .then(a => base64js.fromByteArray(new Uint8Array(a)));
-        window._imageBase64Cache[imageUrl] = imageBase64;
-      }
-      hasImage = true;
+    // Prepare API request
+    const parts = [];
+    if (message) {
+      parts.push({ text: message });
+    }
+    if (currentAttachment) {
+      parts.unshift({
+        inline_data: {
+          mime_type: currentAttachment.mimeType,
+          data: currentAttachment.base64
+        }
+      });
     }
 
-    // Assemble the prompt - include image only if one is selected
-    let parts = [{ text: promptInput.value }];
-    if (hasImage) {
-      parts.unshift({ inline_data: { mime_type: mimeType, data: imageBase64, } });
-    }
-
-    let contents = [
+    const contents = [
+      {
+        role: 'user',
+        parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
+      },
+      {
+        role: 'model',
+        parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
+      },
       {
         role: 'user',
         parts: parts
       }
     ];
 
-    // Call the multimodal model, and get a stream of results
-    let stream = streamGemini({
+    // Call API
+    const stream = streamGemini({
       model: 'gemini-2.0-flash',
       contents,
     });
 
-    // Read from the stream and interpret the output as markdown
+    // Remove typing indicator and add assistant message
+    typingElement.remove();
+    const assistantElement = addAssistantMessage('');
+    const contentElement = assistantElement.querySelector('.message-content');
+
+    // Stream response
     let buffer = [];
-    let md = new markdownit();
+    const md = new markdownit();
+
     for await (let chunk of stream) {
       buffer.push(chunk);
-      output.innerHTML = md.render(buffer.join(''));
+      contentElement.innerHTML = md.render(buffer.join(''));
+      scrollToBottom();
     }
-  } catch (e) {
-    output.textContent += '\n---\n' + e;
+
+  } catch (error) {
+    // Remove typing indicator and show error
+    typingElement.remove();
+    addAssistantMessage(`Sorry, I encountered an error: ${error.message}`);
+  } finally {
+    // Re-enable form
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    messageInput.focus();
   }
-};
+});
+
+// Handle Enter key (without Shift)
+messageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit'));
+  }
+});
+
+// Helper functions
+function addUserMessage(text, imageUrl = null) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message user-message';
+
+  let content = '';
+  if (imageUrl) {
+    content += `<img src="${imageUrl}" class="message-image" alt="User uploaded image">`;
+  }
+  if (text) {
+    content += `<p>${escapeHtml(text)}</p>`;
+  }
+
+  messageDiv.innerHTML = `
+    <div class="message-content">
+      ${content}
+    </div>
+  `;
+
+  chatMessages.appendChild(messageDiv);
+  scrollToBottom();
+  return messageDiv;
+}
+
+function addAssistantMessage(text) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message assistant-message';
+  messageDiv.innerHTML = `
+    <div class="message-content">
+      ${text}
+    </div>
+  `;
+
+  chatMessages.appendChild(messageDiv);
+  scrollToBottom();
+  return messageDiv;
+}
+
+function addTypingIndicator() {
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'message assistant-message typing-indicator';
+  typingDiv.innerHTML = `
+    <div class="message-content">
+      <div class="typing-indicator">
+        <span>Sahayak is typing</span>
+        <div class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  chatMessages.appendChild(typingDiv);
+  scrollToBottom();
+  return typingDiv;
+}
+
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}

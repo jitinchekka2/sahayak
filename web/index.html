@@ -4,56 +4,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Baking with the Gemini API</title>
+  <title>Sahayak - AI Assistant</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
   <main>
-    <h1>Baking with the Gemini API</h1>
-    <form>
-      <div class="image-picker">
-        <label class="image-choice">
-          <input type="radio" name="chosen-image" value="/baked_goods_1.jpg">
-          <img src="/baked_goods_1.jpg">
-        </label>
-        <label class="image-choice">
-          <input type="radio" name="chosen-image" value="/baked_goods_2.jpg">
-          <img src="/baked_goods_2.jpg">
-        </label>
-        <label class="image-choice">
-          <input type="radio" name="chosen-image" value="/baked_goods_3.jpg">
-          <img src="/baked_goods_3.jpg">
-        </label>
-        <label class="image-choice upload-choice">
-          <input type="radio" name="chosen-image" value="uploaded">
-          <div class="upload-placeholder">
-            <span>📷</span>
-            <span>Upload Image</span>
+    <div class="chat-header">
+      <h1>Sahayak</h1>
+      <p class="status">Ready to help</p>
+    </div>
+
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="message assistant-message">
+          <div class="message-content">
+            <p>Hello! I'm Sahayak, your AI assistant. How can I help you today? You can ask me questions or attach an
+              image for
+              analysis.</p>
           </div>
-          <img class="uploaded-preview" style="display: none;">
-        </label>
-        <label class="image-choice text-only-choice">
-          <input type="radio" checked name="chosen-image" value="none">
-          <div class="text-only-placeholder">
-            <span>💬</span>
-            <span>Text Only</span>
-          </div>
-        </label>
+        </div>
       </div>
-      <div class="file-upload" style="display: none;">
-        <input type="file" id="image-upload" accept="image/*">
-        <label for="image-upload">Choose an image file</label>
-      </div>
-      <div class="prompt-box">
-        <label>
-          <input name="prompt" placeholder="Enter instructions here" type="text"
-            value="Hello! How can I help you today?">
-        </label>
-        <button type="submit">Go</button>
-      </div>
-    </form>
-    <p class="output">(Results will appear here)</p>
+
+      <form class="chat-input-form">
+        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+
+        <div class="attached-image" id="attached-image" style="display: none;">
+          <img id="attached-preview" src="" alt="Attached image">
+          <button type="button" id="remove-attachment" title="Remove image">×</button>
+        </div>
+
+        <div class="input-container">
+          <button type="button" id="attach-button" class="attach-btn" title="Attach image">📎</button>
+          <input type="text" name="prompt" placeholder="Type your message..." class="message-input" autocomplete="off">
+          <button type="submit" class="send-btn" title="Send message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
   </main>
 
   <script src="https://unpkg.com/markdown-it@8.4.2/dist/markdown-it.min.js"></script>
