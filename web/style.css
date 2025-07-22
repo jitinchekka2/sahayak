@@ -139,3 +139,61 @@ button:focus-visible {
 button:hover {
   opacity: 0.95;
 }
+
+.upload-choice .upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 14px;
+  min-height: 80px;
+}
+
+.upload-choice .upload-placeholder span:first-child {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.upload-choice:has(:checked) .upload-placeholder {
+  border-color: var(--accent-color);
+  background-color: #e3f2fd;
+  color: var(--accent-color);
+}
+
+.upload-choice .uploaded-preview {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.file-upload {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.file-upload input[type="file"] {
+  display: none;
+}
+
+.file-upload label {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: var(--accent-color);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.file-upload label:hover {
+  opacity: 0.9;
+}

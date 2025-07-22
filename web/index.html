@@ -25,6 +25,18 @@
           <input type="radio" name="chosen-image" value="/baked_goods_3.jpg">
           <img src="/baked_goods_3.jpg">
         </label>
+        <label class="image-choice upload-choice">
+          <input type="radio" name="chosen-image" value="uploaded">
+          <div class="upload-placeholder">
+            <span>📷</span>
+            <span>Upload Image</span>
+          </div>
+          <img class="uploaded-preview" style="display: none;">
+        </label>
+      </div>
+      <div class="file-upload" style="display: none;">
+        <input type="file" id="image-upload" accept="image/*">
+        <label for="image-upload">Choose an image file</label>
       </div>
       <div class="prompt-box">
         <label>
