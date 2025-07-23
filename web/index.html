@@ -10,40 +10,52 @@
 
 <body>
   <main>
-    <div class="chat-header">
+    <div class="header">
       <h1>Sahayak</h1>
-      <p class="status">Ready to help</p>
+      <p class="subtitle">Your AI Assistant</p>
     </div>
 
     <div class="chat-container">
-      <div class="chat-messages" id="chat-messages">
-        <div class="message assistant-message">
-          <div class="message-content">
-            <p>Hello! I'm Sahayak, your AI assistant. How can I help you today? You can ask me questions or attach an
-              image for
-              analysis.</p>
-          </div>
-        </div>
+      <div class="messages" id="messages">
+        <!-- Messages will be added here dynamically -->
       </div>
 
-      <form class="chat-input-form">
-        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+      <div class="input-section">
+        <form class="input-form">
+          <div class="input-wrapper">
+            <input type="file" id="image-upload" accept="image/*" style="display: none;">
 
-        <div class="attached-image" id="attached-image" style="display: none;">
-          <img id="attached-preview" src="" alt="Attached image">
-          <button type="button" id="remove-attachment" title="Remove image">×</button>
-        </div>
+            <div class="attached-image" id="attached-image" style="display: none;">
+              <img id="attached-preview" src="" alt="Attached image">
+              <button type="button" id="remove-attachment" class="remove-btn">×</button>
+            </div>
 
-        <div class="input-container">
-          <button type="button" id="attach-button" class="attach-btn" title="Attach image">📎</button>
-          <input type="text" name="prompt" placeholder="Type your message..." class="message-input" autocomplete="off">
-          <button type="submit" class="send-btn" title="Send message">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
+            <div class="input-container">
+              <button type="button" id="attach-button" class="attach-btn" title="Attach image">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" />
+                </svg>
+              </button>
+              <input type="text" name="prompt" placeholder="Enter a prompt for Sahayak" class="message-input"
+                autocomplete="off">
+              <button type="submit" class="send-btn" title="Send message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div class="suggestions" id="suggestions">
+          <button class="suggestion-btn" data-suggestion="What can you help me with?">What can you help me
+            with?</button>
+          <button class="suggestion-btn" data-suggestion="Analyze this image">Analyze this image</button>
+          <button class="suggestion-btn" data-suggestion="Write a creative story">Write a creative story</button>
+          <button class="suggestion-btn" data-suggestion="Help me with coding">Help me with coding</button>
         </div>
-      </form>
+      </div>
     </div>
   </main>
 

@@ -1,10 +1,17 @@
+from flask import Flask, jsonify, request, send_file, send_from_directory
+import google.genai as genai
 import json
 import os
+from dotenv import load_dotenv
 
-import google.genai as genai
-from flask import Flask, jsonify, request, send_file, send_from_directory
+load_dotenv()
 
-API_KEY = os.environ.get('GOOGLE_GENAI_API_KEY', 'AIzaSyAQVQ9QSYnKkqYEZZy_gz1l3cM52zUvO3o')
+
+API_KEY = os.environ.get('GOOGLE_GENAI_API_KEY',
+                         'TODO')
+if not API_KEY:
+    raise ValueError(
+        "API key not found. Please set the GOOGLE_GENAI_API_KEY environment variable.")
 
 ai = genai.Client(api_key=API_KEY)
 app = Flask(__name__)
@@ -19,23 +26,25 @@ def index():
 def generate_api():
     if request.method == "POST":
         if not API_KEY or API_KEY == 'TODO':
-            return jsonify({ "error": '''
+            return jsonify({"error": '''
                 To get started, get an API key at
                 https://g.co/ai/idxGetGeminiKey and enter it in
                 main.py
-                '''.replace('\n', '') })
+                '''.replace('\n', '')})
         try:
             req_body = request.get_json()
             contents = req_body.get("contents")
-            response = ai.models.generate_content_stream(model=req_body.get("model"), contents=contents)
+            response = ai.models.generate_content_stream(
+                model=req_body.get("model"), contents=contents)
+
             def stream():
                 for chunk in response:
-                    yield 'data: %s\n\n' % json.dumps({ "text": chunk.text })
+                    yield 'data: %s\n\n' % json.dumps({"text": chunk.text})
 
             return stream(), {'Content-Type': 'text/event-stream'}
 
         except Exception as e:
-            return jsonify({ "error": str(e) })
+            return jsonify({"error": str(e)})
 
 
 @app.route('/<path:path>')
@@ -44,4 +53,4 @@ def serve_static(path):
 
 
 if __name__ == "__main__":
-    app.run(port=int(os.environ.get('PORT', 80)))
+    app.run(port=int(os.environ.get('PORT', 5000)), debug=True)
