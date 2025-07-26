@@ -1,4 +1,5 @@
 import { streamGemini } from './gemini-api.js';
+import { generateMermaid } from './generateMermaid.js';
 
 // DOM elements
 const form = document.querySelector('.input-form');
@@ -92,19 +93,46 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       // Prepare API request
       const parts = [];
-      if (message) {
-        parts.push({ text: message });
-      }
-      if (currentAttachment) {
-        parts.unshift({
-          inline_data: {
-            mime_type: currentAttachment.mimeType,
-            data: currentAttachment.base64
-          }
-        });
-      }
+      const isWorksheetMode = !!currentAttachment;
 
-      // TODO: Maintain a chat history
+    if (isWorksheetMode) {
+      // Worksheet generator logic
+      parts.push({
+        inline_data: {
+          mime_type: currentAttachment.mimeType,
+          data: currentAttachment.base64
+        }
+      });
+
+      parts.push({
+        text: `Based on this textbook page image, generate 3 differentiated worksheets:
+    - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
+    - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
+    - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
+    Each worksheet should be clearly separated and labeled.`
+      });
+    } else if (message && message.toLowerCase().startsWith("draw:")) {
+  const drawingPrompt = message.replace(/^draw:\s*/i, '');
+
+  try {
+    // Use the new function to get the diagram code
+    const diagramCode = await generateMermaid(drawingPrompt);
+
+    // Directly render the Mermaid diagram in the UI
+    const assistantElement = addAssistantMessage('');
+    renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+    return; // Skip Gemini streaming since we already handled it
+  } catch (err) {
+    addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
+    return;
+  }
+}
+ else {
+      // Regular assistant query
+      parts.push({ text: message });
+    }
+
+
       const contents = [
         {
           role: 'user',
@@ -134,11 +162,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // Stream response
       let buffer = [];
       const md = new markdownit();
-
+      let fullContent = '';
       for await (let chunk of stream) {
         buffer.push(chunk);
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
+      }
+      if (fullContent.includes('flowchart')) {
+        renderMermaidDiagram(fullContent, contentElement);
       }
 
     } catch (error) {
@@ -161,6 +192,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+function renderMermaidDiagram(code, container) {
+  const mermaidDiv = document.createElement('div');
+  mermaidDiv.className = 'mermaid';
+  mermaidDiv.textContent = code.trim(); // No regex needed now
+
+  const codeBox = document.createElement('pre');
+  codeBox.textContent = mermaidDiv.textContent;
+
+  container.innerHTML = '';
+  container.appendChild(mermaidDiv);
+  container.appendChild(document.createElement('hr'));
+  container.appendChild(codeBox);
+
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false });
+    window.mermaid.init(undefined, mermaidDiv);
+  }
+}
+
 
 // Helper functions
 function addUserMessage(text, imageUrl = null) {
@@ -203,18 +254,6 @@ function addAssistantMessage(text) {
 function addTypingIndicator() {
   const typingDiv = document.createElement('div');
   typingDiv.className = 'message assistant-message typing-indicator';
-  typingDiv.innerHTML = `
-    <div class="message-content">
-      <div class="typing-indicator">
-        <span>Sahayak is typing</span>
-        <div class="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>
-    </div>
-  `;
 
   messages.appendChild(typingDiv);
   scrollToBottom();

@@ -430,6 +430,49 @@ def create_enhanced_app():
 
     return app
 
+    @app.route("/api/generate_mermaid", methods=["POST"])
+    def generate_mermaid():
+        data = request.json
+        prompt = data.get("prompt")
+
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        system_prompt = """
+    You are a Mermaid diagram expert. Convert natural language descriptions into valid Mermaid diagram syntax.
+
+    CRITICAL RULES:
+    1. Return ONLY the Mermaid code, no explanations or markdown formatting
+    2. Start directly with the diagram type (flowchart, sequenceDiagram, etc.)
+    3. Use proper Mermaid syntax - NEVER use semicolons (;) in flowcharts
+    4. Make the diagram clear and well-structured
+    5. Each edge must be on a new line
+    6. Avoid malformed connections
+    """
+
+        full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
+
+        try:
+            response = ai.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
+            )
+
+            text = response.text.strip() if response.text else ""
+            text = (
+                text.replace("```mermaid", "")
+                    .replace("```", "")
+                    .replace(";", "")
+                    .strip()
+            )
+            text = text.replace("]B -->", "]\nB -->")
+
+            return jsonify({"diagram": text})
+
+        except Exception as e:
+            print("Error in generate_mermaid:", e)  # Debug log
+            return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app = create_enhanced_app()
