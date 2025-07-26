@@ -563,29 +563,19 @@ def create_enhanced_app():
     def generate_mermaid():
         data = request.json
         prompt = data.get("prompt")
-
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
         system_prompt = """
-        You are a Mermaid diagram expert. Create a diagram showing the requested process.
+        You are a Mermaid diagram expert. Convert natural language descriptions into valid Mermaid diagram syntax.
 
         CRITICAL RULES:
-        1. Use 'graph LR' for left-to-right flowchart
-        2. Start IMMEDIATELY with 'graph LR' - no other text before it
-        3. Use proper Mermaid syntax without semicolons
-        4. For water cycle, include: Evaporation, Condensation, Precipitation, Collection, Surface Runoff
-        5. Put each connection on a new line
-        6. Use descriptive node names in [Square Brackets]
-        7. Use --> for arrows
-        8. Keep node names clear and concise
-        
-        Example water cycle format:
-        graph LR
-            A[Ocean] --> B[Water Vapor]
-            B --> C[Clouds]
-            C --> D[Rain]
-            D --> A
+        1. Return ONLY the Mermaid code, no explanations or markdown formatting
+        2. Start directly with the diagram type (flowchart, sequenceDiagram, etc.)
+        3. Use proper Mermaid syntax - NEVER use semicolons (;) in flowcharts
+        4. Make the diagram clear and well-structured
+        5. Each edge must be on a new line
+        6. Avoid malformed connections
         """
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
@@ -604,28 +594,37 @@ def create_enhanced_app():
             
             # Only keep the diagram part
             lines = text.splitlines()
-            graph_start = next((i for i, l in enumerate(lines) if l.strip().startswith("graph")), 0)
-            diagram_lines = []
+            # Find the graph LR line
+            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
+            diagram_lines = ["graph LR"]  # Start with clean graph LR
             
-            # Process each line
-            for line in lines[graph_start:]:
-                # Skip empty lines and non-diagram content
-                if not line.strip() or ":" in line:
+            # Process each line after graph LR
+            for line in lines[graph_start + 1:]:
+                line = line.strip()
+                # Skip empty lines, comments, and non-diagram content
+                if not line or line.startswith("%") or ":" in line:
                     continue
+                    
                 # Clean up the line
                 clean_line = (
                     line.strip()
-                        .replace(";", "")
-                        .replace("  ", " ")
+                        .replace(";", "")  # Remove semicolons
+                        .replace("  ", " ")  # Remove double spaces
                 )
-                diagram_lines.append(clean_line)
+                
+                # Only add lines that match the expected format: X --> Y or X[Label] --> Y[Label]
+                if "-->" in clean_line:
+                    parts = clean_line.split("-->")
+                    if len(parts) == 2:
+                        # Ensure proper spacing around arrow
+                        clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
+                        diagram_lines.append(clean_line)
             
-            # Join the lines and ensure proper formatting
+            # Join the lines with proper newlines
             diagram = "\n".join(diagram_lines)
             
-            # Log the generated diagram for debugging
-            print("Generated diagram:", diagram)
-
+            # Log the final diagram for debugging
+            print("Final processed diagram:", diagram)
             return jsonify({"diagram": diagram})
 
         except Exception as e:
