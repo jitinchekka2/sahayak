@@ -35,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const suggestionButtons = document.querySelectorAll('.suggestion-btn');
   suggestionButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+      // Skip the "Take a Speaking Test" button as it has its own handler
+      if (btn.id === 'show-tutor-btn') {
+        return;
+      }
       const suggestion = btn.dataset.suggestion;
       messageInput.value = suggestion;
       messageInput.focus();
@@ -289,21 +293,21 @@ let mediaRecorder;
 let audioChunks = [];
 
 const paragraphs = [
-    "The sun dipped below the horizon, painting the sky in shades of orange and pink. A gentle breeze rustled the leaves in the trees, creating a soft, whispering sound.",
-    "Technology has advanced at an incredible pace over the last few decades. From the first computers to the powerful devices in our pockets, the change has been monumental.",
-    "A balanced diet and regular exercise are crucial for maintaining good health. It is important to consume a variety of nutrients and stay active to keep your body and mind in top shape.",
-    "The old library was a quiet sanctuary, filled with the scent of aged paper and leather-bound books. Every shelf held stories waiting to be discovered by an eager reader."
+  "The sun dipped below the horizon, painting the sky in shades of orange and pink. A gentle breeze rustled the leaves in the trees, creating a soft, whispering sound.",
+  "Technology has advanced at an incredible pace over the last few decades. From the first computers to the powerful devices in our pockets, the change has been monumental.",
+  "A balanced diet and regular exercise are crucial for maintaining good health. It is important to consume a variety of nutrients and stay active to keep your body and mind in top shape.",
+  "The old library was a quiet sanctuary, filled with the scent of aged paper and leather-bound books. Every shelf held stories waiting to be discovered by an eager reader."
 ];
 
 showTutorBtn.addEventListener('click', () => {
-    const randomIndex = Math.floor(Math.random() * paragraphs.length);
-    readingText.innerText = paragraphs[randomIndex];
-    readingResultsDiv.style.display = 'none';
-    readingResultsContent.innerHTML = '';
-    readingTutorContainer.style.display = 'block';
-    startRecordBtn.disabled = false;
-    startRecordBtn.innerText = 'Start Recording';
-    stopRecordBtn.disabled = true;
+  const randomIndex = Math.floor(Math.random() * paragraphs.length);
+  readingText.innerText = paragraphs[randomIndex];
+  readingResultsDiv.style.display = 'none';
+  readingResultsContent.innerHTML = '';
+  readingTutorContainer.style.display = 'block';
+  startRecordBtn.disabled = false;
+  startRecordBtn.innerText = 'Start Recording';
+  stopRecordBtn.disabled = true;
 });
 
 startRecordBtn.addEventListener('click', async () => {
@@ -314,13 +318,13 @@ startRecordBtn.addEventListener('click', async () => {
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    
+
     const options = { mimeType: 'audio/webm;codecs=opus' };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        console.warn(`${options.mimeType} is not supported, using browser default.`);
-        mediaRecorder = new MediaRecorder(stream);
+      console.warn(`${options.mimeType} is not supported, using browser default.`);
+      mediaRecorder = new MediaRecorder(stream);
     } else {
-        mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder = new MediaRecorder(stream, options);
     }
 
     mediaRecorder.ondataavailable = (event) => {
