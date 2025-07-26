@@ -2,9 +2,10 @@
 API Integration for Parent-Teacher Meeting System
 Extends the existing Flask app with student data management endpoints
 """
-
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response
+import google.generativeai as genai
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
-import google.genai as genai
+
 import json
 import os
 from dotenv import load_dotenv
@@ -272,19 +273,8 @@ Keep the tone positive, constructive, and focused on the student's success.
                 if not API_KEY or API_KEY == 'TODO':
                     return jsonify({"success": False, "error": "Gemini API key not configured"}), 500
 
-                ai = genai.Client(api_key=API_KEY)
-
-                contents = [
-                    {
-                        "role": "user",
-                        "parts": [{"text": prompt}]
-                    }
-                ]
-
-                response = ai.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=contents  # type: ignore
-                )
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                response = model.generate_content(prompt)
 
                 return jsonify({
                     "success": True,
@@ -526,7 +516,7 @@ def create_enhanced_app():
         raise ValueError(
             "API key not found. Please set the GOOGLE_GENAI_API_KEY environment variable.")
 
-    ai = genai.Client(api_key=API_KEY)
+    genai.configure(api_key=API_KEY)
     app = Flask(__name__)
 
     # Original routes
@@ -546,8 +536,9 @@ def create_enhanced_app():
             try:
                 req_body = request.get_json()
                 contents = req_body.get("contents")
-                response = ai.models.generate_content_stream(
-                    model=req_body.get("model"), contents=contents)
+                model_name = req_body.get("model")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(contents, stream=True)
 
                 def stream() -> Generator[str, None, None]:
                     for chunk in response:
@@ -568,8 +559,79 @@ def create_enhanced_app():
     # Add student management API
     student_api = StudentMeetingAPI(app)
 
-    return app
+    @app.route("/api/generate_mermaid", methods=["POST"])
+    def generate_mermaid():
+        data = request.json
+        prompt = data.get("prompt")
 
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        system_prompt = """
+        You are a Mermaid diagram expert. Create a diagram showing the requested process.
+
+        CRITICAL RULES:
+        1. Use 'graph LR' for left-to-right flowchart
+        2. Start IMMEDIATELY with 'graph LR' - no other text before it
+        3. Use proper Mermaid syntax without semicolons
+        4. For water cycle, include: Evaporation, Condensation, Precipitation, Collection, Surface Runoff
+        5. Put each connection on a new line
+        6. Use descriptive node names in [Square Brackets]
+        7. Use --> for arrows
+        8. Keep node names clear and concise
+        
+        Example water cycle format:
+        graph LR
+            A[Ocean] --> B[Water Vapor]
+            B --> C[Clouds]
+            C --> D[Rain]
+            D --> A
+        """
+
+        full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
+
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(full_prompt)
+
+            text = response.text.strip() if response.text else ""
+            # Remove markdown and code blocks
+            text = (
+                text.replace("```mermaid", "")
+                    .replace("```", "")
+                    .strip()
+            )
+            
+            # Only keep the diagram part
+            lines = text.splitlines()
+            graph_start = next((i for i, l in enumerate(lines) if l.strip().startswith("graph")), 0)
+            diagram_lines = []
+            
+            # Process each line
+            for line in lines[graph_start:]:
+                # Skip empty lines and non-diagram content
+                if not line.strip() or ":" in line:
+                    continue
+                # Clean up the line
+                clean_line = (
+                    line.strip()
+                        .replace(";", "")
+                        .replace("  ", " ")
+                )
+                diagram_lines.append(clean_line)
+            
+            # Join the lines and ensure proper formatting
+            diagram = "\n".join(diagram_lines)
+            
+            # Log the generated diagram for debugging
+            print("Generated diagram:", diagram)
+
+            return jsonify({"diagram": diagram})
+
+        except Exception as e:
+            print("Error in generate_mermaid:", e)  # Debug log
+            return jsonify({"error": str(e)}), 500
+    return app
 
 if __name__ == "__main__":
     app = create_enhanced_app()
