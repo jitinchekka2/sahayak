@@ -15,6 +15,16 @@ const suggestionsContainer = document.querySelector('.suggestions');
 
 // State
 let attachedImageData = null;
+let conversationHistory = [
+  {
+    role: 'user',
+    parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
+  },
+  {
+    role: 'model',
+    parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
+  }
+];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -80,9 +90,47 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add user message to chat
     addUserMessage(message, attachedImageData?.dataUrl);
 
+    // Add user message to conversation history
+    const parts = [];
+    const isWorksheetMode = !!attachedImageData;
+
+    if (isWorksheetMode) {
+      parts.push({
+        inline_data: {
+          mime_type: attachedImageData.mimeType,
+          data: attachedImageData.base64
+        }
+      });
+
+      parts.push({
+        text: `Based on this textbook page image, generate 3 differentiated worksheets:
+  - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
+  - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
+  - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
+  Each worksheet should be clearly separated and labeled.`
+      });
+    } else if (message && message.toLowerCase().startsWith("draw:")) {
+      const drawingPrompt = message.replace(/^draw:\s*/i, '');
+      try {
+        const diagramCode = await generateMermaid(drawingPrompt);
+        const assistantElement = addAssistantMessage('');
+        renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+        return;
+      } catch (err) {
+        addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
+        return;
+      }
+    } else {
+      parts.push({ text: message });
+    }
+
+    conversationHistory.push({
+      role: 'user',
+      parts: parts
+    });
+
     // Clear input and attachment
     messageInput.value = '';
-    const currentAttachment = attachedImageData;
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
     imageUpload.value = '';
@@ -91,67 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const typingElement = addTypingIndicator();
 
     try {
-      // Prepare API request
-      const parts = [];
-      const isWorksheetMode = !!currentAttachment;
-
-    if (isWorksheetMode) {
-      // Worksheet generator logic
-      parts.push({
-        inline_data: {
-          mime_type: currentAttachment.mimeType,
-          data: currentAttachment.base64
-        }
-      });
-
-      parts.push({
-        text: `Based on this textbook page image, generate 3 differentiated worksheets:
-    - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
-    - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
-    - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
-    Each worksheet should be clearly separated and labeled.`
-      });
-    } else if (message && message.toLowerCase().startsWith("draw:")) {
-  const drawingPrompt = message.replace(/^draw:\s*/i, '');
-
-  try {
-    // Use the new function to get the diagram code
-    const diagramCode = await generateMermaid(drawingPrompt);
-
-    // Directly render the Mermaid diagram in the UI
-    const assistantElement = addAssistantMessage('');
-    renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
-    return; // Skip Gemini streaming since we already handled it
-  } catch (err) {
-    addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
-    return;
-  }
-}
- else {
-      // Regular assistant query
-      parts.push({ text: message });
-    }
-
-
-      const contents = [
-        {
-          role: 'user',
-          parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
-        },
-        {
-          role: 'model',
-          parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
-        },
-        {
-          role: 'user',
-          parts: parts
-        }
-      ];
-
-      // Call API
+      // Call API with the full conversation history
       const stream = streamGemini({
         model: 'gemini-2.0-flash',
-        contents,
+        contents: conversationHistory,
       });
 
       // Remove typing indicator and add assistant message
@@ -165,9 +156,17 @@ document.addEventListener('DOMContentLoaded', () => {
       let fullContent = '';
       for await (let chunk of stream) {
         buffer.push(chunk);
+        fullContent += chunk;
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
       }
+
+      // Add assistant response to conversation history
+      conversationHistory.push({
+        role: 'model',
+        parts: [{ text: fullContent }]
+      });
+
       if (fullContent.includes('flowchart')) {
         renderMermaidDiagram(fullContent, contentElement);
       }
@@ -175,7 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       // Remove typing indicator and show error
       typingElement.remove();
-      addAssistantMessage(`Sorry, I encountered an error: ${error.message}`);
+      const errorMessage = `Sorry, I encountered an error: ${error.message}`;
+      addAssistantMessage(errorMessage);
+      conversationHistory.push({
+        role: 'model',
+        parts: [{ text: errorMessage }]
+      });
     } finally {
       // Re-enable form
       messageInput.disabled = false;
@@ -196,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderMermaidDiagram(code, container) {
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
-  mermaidDiv.textContent = code.trim(); // No regex needed now
+  mermaidDiv.textContent = code.trim();
 
   const codeBox = document.createElement('pre');
   codeBox.textContent = mermaidDiv.textContent;
@@ -211,7 +215,6 @@ function renderMermaidDiagram(code, container) {
     window.mermaid.init(undefined, mermaidDiv);
   }
 }
-
 
 // Helper functions
 function addUserMessage(text, imageUrl = null) {
