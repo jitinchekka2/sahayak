@@ -4,12 +4,12 @@ Extends the existing Flask app with student data management endpoints
 """
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
-from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
-
 import json
 import os
 from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Union, Generator, Tuple
+
+DEFAULT_GENAI_MODEL = "models/gemini-1.5-pro-latest"
 
 # Import our custom modules - handle optional dependencies
 StudentDatabase = None
@@ -563,7 +563,6 @@ def create_enhanced_app():
     def generate_mermaid():
         data = request.json
         prompt = data.get("prompt")
-
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
@@ -572,24 +571,14 @@ def create_enhanced_app():
 
         CRITICAL RULES:
         1. Return ONLY the Mermaid code, no explanations or markdown formatting
-        2. Start with 'graph LR' for left-to-right flowcharts
-        3. Use ONLY these syntax rules:
-           - Each node must have a unique ID and label: id[label]
-           - Example: A[Water] --> B[Steam]
-           - NO special characters or semicolons
-           - NO parentheses or curly braces
-        4. Each connection must be on a new line
-        5. ALL referenced nodes must be properly defined with labels
-        6. Keep labels short and clear
-        7. Use descriptive IDs (not just single letters)
-        8. Example format:
-           graph LR
-           water[Water] --> steam[Steam]
-           steam --> cloud[Cloud]
+        2. Start directly with the diagram type (flowchart, sequenceDiagram, etc.)
+        3. Use proper Mermaid syntax - NEVER use semicolons (;) in flowcharts
+        4. Make the diagram clear and well-structured
+        5. Each edge must be on a new line
+        6. Avoid malformed connections
         """
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
-
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(full_prompt)
@@ -655,11 +644,96 @@ def create_enhanced_app():
             # Log the generated diagram for debugging
             print("Generated Mermaid diagram:", diagram)
             
+            # Only keep the diagram part
+            lines = text.splitlines()
+            # Find the graph LR line
+            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
+            diagram_lines = ["graph LR"]  # Start with clean graph LR
+            
+            # Process each line after graph LR
+            for line in lines[graph_start + 1:]:
+                line = line.strip()
+                # Skip empty lines, comments, and non-diagram content
+                if not line or line.startswith("%") or ":" in line:
+                    continue
+                    
+                # Clean up the line
+                clean_line = (
+                    line.strip()
+                        .replace(";", "")  # Remove semicolons
+                        .replace("  ", " ")  # Remove double spaces
+                )
+                
+                # Only add lines that match the expected format: X --> Y or X[Label] --> Y[Label]
+                if "-->" in clean_line:
+                    parts = clean_line.split("-->")
+                    if len(parts) == 2:
+                        # Ensure proper spacing around arrow
+                        clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
+                        diagram_lines.append(clean_line)
+            
+            # Join the lines with proper newlines
+            diagram = "\n".join(diagram_lines)
+            
+            # Log the final diagram for debugging
+            print("Final processed diagram:", diagram)
+
             return jsonify({"diagram": diagram})
 
         except Exception as e:
             print("Error in generate_mermaid:", e)  # Debug log
             return jsonify({"error": str(e)}), 500
+    
+    @app.route("/api/analyze_reading", methods=["POST"])
+    def analyze_reading_api():
+        if 'audio_file' not in request.files:
+            return jsonify({"error": "No audio file found"}), 400
+
+        audio_file = request.files['audio_file']
+        original_text = request.form.get('original_text')
+
+        if not original_text:
+            return jsonify({"error": "Original text is missing"}), 400
+
+        try:
+            # Read the audio bytes directly to send them inline
+            audio_bytes = audio_file.read()
+            
+            model = genai.GenerativeModel(DEFAULT_GENAI_MODEL)
+            
+            # Send audio data inline with the prompt for transcription
+            transcription_response = model.generate_content([
+                "Transcribe the following audio.",
+                {"mime_type": "audio/webm", "data": audio_bytes}
+            ])
+            transcribed_text = transcription_response.text
+
+            analysis_prompt = f"""
+            You are an expert English pronunciation and reading coach.
+            A student was asked to read the following text:
+            ---
+            Original Text: "{original_text}"
+            ---
+            The student's reading was transcribed from audio as:
+            ---
+            Student's Transcription: "{transcribed_text}"
+            ---
+            Please analyze the student's performance. Compare the original text with the student's transcription to identify any errors (missed words, mispronounced words, extra words).
+
+            Provide your feedback in a markdown format with the following sections:
+            - **Overall Score**: A score out of 100 based on accuracy, fluency, and clarity.
+            - **Feedback**: Specific, constructive feedback.
+            - **Corrections**: The student's transcription with corrections.
+            """
+
+            analysis_response = model.generate_content(analysis_prompt)
+
+            return jsonify({"analysis": analysis_response.text})
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return jsonify({"error": str(e)}), 500
+
     return app
 
 if __name__ == "__main__":
