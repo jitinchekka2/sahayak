@@ -1,5 +1,6 @@
 import { streamGemini } from './gemini-api.js';
 import { generateMermaid } from './generateMermaid.js';
+import { detectSpeakingTestIntent, initiateSpeakingTest } from './speakingTest.js';
 
 // DOM elements
 const form = document.querySelector('.input-form');
@@ -18,7 +19,7 @@ let attachedImageData = null;
 let conversationHistory = [
   {
     role: 'user',
-    parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
+    parts: [{ text: "You are Sahayak, a helpful AI assistant with various tools. Please introduce yourself as Sahayak and be friendly and helpful." }]
   },
   {
     role: 'model',
@@ -89,34 +90,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add user message to chat
     addUserMessage(message, attachedImageData?.dataUrl);
+
+    // Clear form immediately after adding user message
+    messageInput.value = '';
+
+    // Clear attachment
+    attachedImageData = null;
+    attachedImageDiv.style.display = 'none';
+    imageUpload.value = '';
+
+    // Add typing indicator
+    const typingElement = addTypingIndicator();
+
+    // Check for speaking test intent first
+    if (message) {
+      const isSpeakingIntent = await detectSpeakingTestIntent(message, conversationHistory);
+      if (isSpeakingIntent) {
+        console.log("Detected speaking test intent:", message);
+        addUserMessage(message);
+        messageInput.value = '';
+        await initiateSpeakingTest(addAssistantMessage, scrollToBottom, conversationHistory);
+        messageInput.focus();
+        return;
+      }
+    }
+
     try {
       // Prepare API request
       const parts = [];
-      const isWorksheetMode = !!currentAttachment;
 
-    if (isWorksheetMode) {
-      // Worksheet generator logic
-      parts.push({
-        inline_data: {
-          mime_type: currentAttachment.mimeType,
-          data: currentAttachment.base64
-        }
-      });
-
-      parts.push({
-        text: `Based on this textbook page image, generate 3 differentiated worksheets:
-    - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
-    - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
-    - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
-    Each worksheet should be clearly separated and labeled.`
-      });
-    } else {
       // First, let's ask the LLM to determine if this is a diagram generation request
       const routerResponse = await streamGemini({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{
           role: 'user',
-          parts: [{ text: `Analyze if this request would benefit from a diagram/flowchart/visualization. 
+          parts: [{
+            text: `Analyze if this request would benefit from a diagram/flowchart/visualization. 
           Respond with YES if any of these are true:
           1. It describes a process or cycle (like photosynthesis, water cycle, etc.)
           2. It involves steps or stages in a sequence
@@ -125,7 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
           5. It contains words like: process, cycle, steps, stages, flow, mechanism
           6. It's explaining a scientific concept with multiple parts
           
-          Only respond with "YES" or "NO": "${message}"` }]
+          Only respond with "YES" or "NO": "${message}"`
+          }]
         }]
       });
 
@@ -137,39 +147,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      if (shouldGenerateDiagram) {
-        try {
-          const diagramCode = await generateMermaid(message);
-          const assistantElement = addAssistantMessage('');
-          renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
-          return; // Skip regular Gemini streaming
-        } catch (err) {
-          addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
-          return;
-        }
-      } else {
-        // Regular assistant query
-        parts.push({ text: message });
+      // Always prepare regular assistant query
+      if (attachedImageData) {
+        parts.push({
+          inline_data: {
+            mime_type: attachedImageData.mimeType,
+            data: attachedImageData.base64
+          }
+        });
       }
-    }
+      parts.push({ text: message });
 
 
-      const contents = [
-        {
-          role: 'user',
-          parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
-        },
-        {
-          role: 'model',
-          parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
-        },
-        {
-          role: 'user',
-          parts: parts
-        }
-      ];
+      // Add the current user message to conversation history before making the API call
+      conversationHistory.push({
+        role: 'user',
+        parts: parts
+      });
       const stream = streamGemini({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: conversationHistory,
       });
 
@@ -188,8 +184,27 @@ document.addEventListener('DOMContentLoaded', () => {
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
       }
-      if (fullContent.includes('flowchart')) {
-        renderMermaidDiagram(fullContent, contentElement);
+
+      // Generate diagram if needed, after the text response
+      if (shouldGenerateDiagram) {
+        try {
+          const diagramCode = await generateMermaid(message);
+          // Add separator and diagram
+          const separatorHr = document.createElement('hr');
+          contentElement.appendChild(separatorHr);
+
+          const diagramSection = document.createElement('div');
+          diagramSection.className = 'diagram-section';
+          contentElement.appendChild(diagramSection);
+
+          renderMermaidDiagram(diagramCode, diagramSection);
+        } catch (err) {
+          const errorP = document.createElement('p');
+          errorP.style.color = '#f44336';
+          errorP.textContent = `Error generating diagram: ${err.message}`;
+          contentElement.appendChild(document.createElement('hr'));
+          contentElement.appendChild(errorP);
+        }
       }
 
       // Add assistant response to conversation history
@@ -197,10 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         role: 'model',
         parts: [{ text: fullContent }]
       });
-
-      if (fullContent.includes('flowchart')) {
-        renderMermaidDiagram(fullContent, contentElement);
-      }
 
     } catch (error) {
       // Remove typing indicator and show error
@@ -229,22 +240,36 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderMermaidDiagram(code, container) {
+  // Clean up the code - remove any markdown code blocks
+  const cleanCode = code.replace(/```mermaid\n?/g, '').replace(/```\n?/g, '').trim();
+
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
-  mermaidDiv.textContent = code.trim(); // No regex needed now
-
-
-  const codeBox = document.createElement('pre');
-  codeBox.textContent = mermaidDiv.textContent;
+  mermaidDiv.textContent = cleanCode;
 
   container.innerHTML = '';
   container.appendChild(mermaidDiv);
-  container.appendChild(document.createElement('hr'));
-  container.appendChild(codeBox);
 
+  // Initialize and render mermaid
   if (window.mermaid) {
-    window.mermaid.initialize({ startOnLoad: false });
-    window.mermaid.init(undefined, mermaidDiv);
+    window.mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose'
+    });
+
+    // Generate a unique id for this diagram
+    const diagramId = 'mermaid-diagram-' + Date.now();
+    mermaidDiv.id = diagramId;
+
+    try {
+      window.mermaid.init(undefined, mermaidDiv);
+    } catch (error) {
+      console.error('Mermaid rendering error:', error);
+      container.innerHTML = `<p style="color: #f44336;">Error rendering diagram: ${error.message}</p>`;
+    }
+  } else {
+    container.innerHTML = '<p style="color: #f44336;">Mermaid library not loaded</p>';
   }
 }
 // Helper functions
@@ -304,114 +329,4 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
-}
-
-// --- Reading Tutor Logic ---
-
-const showTutorBtn = document.getElementById('show-tutor-btn');
-const readingTutorContainer = document.querySelector('.reading-tutor-container');
-const startRecordBtn = document.getElementById('start-record-btn');
-const stopRecordBtn = document.getElementById('stop-record-btn');
-const readingText = document.getElementById('reading-text');
-const readingResultsDiv = document.getElementById('reading-results');
-const readingResultsContent = readingResultsDiv.querySelector('.message-content');
-
-let mediaRecorder;
-let audioChunks = [];
-
-const paragraphs = [
-    "The sun dipped below the horizon, painting the sky in shades of orange and pink. A gentle breeze rustled the leaves in the trees, creating a soft, whispering sound.",
-    "Technology has advanced at an incredible pace over the last few decades. From the first computers to the powerful devices in our pockets, the change has been monumental.",
-    "A balanced diet and regular exercise are crucial for maintaining good health. It is important to consume a variety of nutrients and stay active to keep your body and mind in top shape.",
-    "The old library was a quiet sanctuary, filled with the scent of aged paper and leather-bound books. Every shelf held stories waiting to be discovered by an eager reader."
-];
-
-showTutorBtn.addEventListener('click', () => {
-    const randomIndex = Math.floor(Math.random() * paragraphs.length);
-    readingText.innerText = paragraphs[randomIndex];
-    readingResultsDiv.style.display = 'none';
-    readingResultsContent.innerHTML = '';
-    readingTutorContainer.style.display = 'block';
-    startRecordBtn.disabled = false;
-    startRecordBtn.innerText = 'Start Recording';
-    stopRecordBtn.disabled = true;
-});
-
-startRecordBtn.addEventListener('click', async () => {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('Your browser does not support audio recording.');
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    
-    const options = { mimeType: 'audio/webm;codecs=opus' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        console.warn(`${options.mimeType} is not supported, using browser default.`);
-        mediaRecorder = new MediaRecorder(stream);
-    } else {
-        mediaRecorder = new MediaRecorder(stream, options);
-    }
-
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: options.mimeType });
-      audioChunks = [];
-
-      if (audioBlob.size === 0) {
-        alert("Recording was empty. Please try recording for a longer duration.");
-        stopRecordBtn.disabled = true;
-        startRecordBtn.disabled = false;
-        startRecordBtn.innerText = 'Start Recording';
-        return;
-      }
-
-      readingResultsContent.innerHTML = 'Analyzing your reading... Please wait.';
-      readingResultsDiv.style.display = 'block';
-
-      const formData = new FormData();
-      formData.append('audio_file', audioBlob, 'recording.webm');
-      formData.append('original_text', readingText.innerText);
-
-      try {
-        const response = await fetch('/api/analyze_reading', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (result.error) {
-          readingResultsContent.innerText = `Error: ${result.error}`;
-        } else {
-          const md = new markdownit();
-          readingResultsContent.innerHTML = md.render(result.analysis);
-        }
-      } catch (error) {
-        readingResultsContent.innerText = `An unexpected error occurred: ${error.message}`;
-      }
-
-      stopRecordBtn.disabled = true;
-      startRecordBtn.disabled = false;
-      startRecordBtn.innerText = 'Start Recording';
-    };
-
-    mediaRecorder.start();
-    startRecordBtn.disabled = true;
-    startRecordBtn.innerText = 'Recording...';
-    stopRecordBtn.disabled = false;
-  } catch (error) {
-    alert(`Error starting recording: ${error.message}`);
-    startRecordBtn.disabled = false;
-  }
-});
-
-stopRecordBtn.addEventListener('click', () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-  }
-});
+} 
