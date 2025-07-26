@@ -19,6 +19,20 @@ export async function* streamGemini({
 }
 
 /**
+ * Renders a Mermaid diagram visually in the browser.
+ * @param {HTMLElement} container - The DOM element to render the diagram into.
+ * @param {string} prompt - The prompt to send to the backend for diagram generation.
+ * @returns {Promise<void>}
+ */
+export async function renderMermaidDiagram(container, prompt) {
+  const diagramCode = await generateMermaid(prompt);
+  container.innerHTML = ""; // Clear previous diagram
+  window.mermaid.render("mermaid-diagram", diagramCode, (svgCode) => {
+    container.innerHTML = svgCode;
+  });
+}
+
+/**
  * A helper that streams text output chunks from a fetch() response.
  */
 async function* streamResponseChunks(response) {
