@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahayak - Parent-Teacher Meeting Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .meeting-dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .student-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .meeting-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .student-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .student-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .student-item:hover {
+            background-color: #f5f5f5;
+            border-color: #007bff;
+        }
+
+        .student-item.selected {
+            background-color: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .student-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .student-details {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .talking-points {
+            margin-top: 20px;
+        }
+
+        .talking-point-category {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-content {
+            padding: 15px;
+            display: none;
+        }
+
+        .category-content.expanded {
+            display: block;
+        }
+
+        .talking-point {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .talking-point.high-priority {
+            border-left-color: #dc3545;
+            background-color: #fdf2f2;
+        }
+
+        .talking-point.medium-priority {
+            border-left-color: #ffc107;
+            background-color: #fffbf0;
+        }
+
+        .talking-point.low-priority {
+            border-left-color: #28a745;
+            background-color: #f0f9f0;
+        }
+
+        .point-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .priority-badge {
+            font-size: 0.8em;
+            padding: 4px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .priority-high {
+            background-color: #dc3545;
+        }
+
+        .priority-medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .priority-low {
+            background-color: #28a745;
+        }
+
+        .action-required {
+            color: #e67e22;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .meeting-summary {
+            background-color: #e8f4f8;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #bee5eb;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        /* Markdown Content Styling */
+        .ai-summary-content h1,
+        .ai-summary-content h2,
+        .ai-summary-content h3,
+        .ai-summary-content h4,
+        .ai-summary-content h5,
+        .ai-summary-content h6 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .ai-summary-content h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+            font-size: 1.3em;
+        }
+
+        .ai-summary-content h3 {
+            font-size: 1.2em;
+            color: #555;
+        }
+
+        .ai-summary-content h4 {
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .ai-summary-content p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .ai-summary-content ul,
+        .ai-summary-content ol {
+            margin-bottom: 12px;
+            padding-left: 20px;
+        }
+
+        .ai-summary-content li {
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        .ai-summary-content strong {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ai-summary-content em {
+            font-style: italic;
+            color: #555;
+        }
+
+        .ai-summary-content code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .ai-summary-content pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            margin-bottom: 12px;
+        }
+
+        .ai-summary-content blockquote {
+            border-left: 4px solid #ddd;
+            margin: 16px 0;
+            padding-left: 16px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="meeting-dashboard">
+        <div class="dashboard-header">
+            <h1>🏫 Sahayak - Parent-Teacher Meeting Assistant</h1>
+            <p>AI-Powered Talking Points Generator for Effective Parent Conversations</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-success" onclick="generateSyntheticData()">Generate Test Data</button>
+            <button class="btn btn-secondary" onclick="refreshStudents()">Refresh Students</button>
+            <select id="gradeFilter" onchange="filterByGrade()" class="btn">
+                <option value="">All Grades</option>
+                <option value="3">Grade 3</option>
+                <option value="4">Grade 4</option>
+                <option value="5">Grade 5</option>
+                <option value="6">Grade 6</option>
+            </select>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="student-selector">
+                <h3>👥 Select Student</h3>
+                <div id="studentList" class="student-list">
+                    <div class="loading">Loading students...</div>
+                </div>
+            </div>
+
+            <div class="meeting-content">
+                <div id="meetingContent">
+                    <div style="text-align: center; padding: 50px; color: #666;">
+                        <h3>📋 Select a student to generate talking points</h3>
+                        <p>Choose a student from the list to get AI-generated discussion points for your parent-teacher
+                            meeting.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let students = [];
+        let selectedStudentId = null;
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStudents();
+        });
+
+        async function loadStudents() {
+            try {
+                const response = await fetch('/api/students');
+                const result = await response.json();
+
+                if (result.success) {
+                    students = result.data;
+                    displayStudents(students);
+                } else {
+                    showError('Failed to load students: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showError('Unable to connect to server. Please ensure the API is running.');
+            }
+        }
+
+        function displayStudents(studentList) {
+            const container = document.getElementById('studentList');
+
+            if (studentList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <p>No students found.</p>
+                        <button class="btn btn-success" onclick="generateSyntheticData()">Generate Test Data</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = studentList.map(student => {
+                const personalInfo = student.personalInfo || {};
+                const academicProfile = student.academicProfile || {};
+                const gpa = academicProfile.currentGPA || 0;
+                const attendance = student.behavioralProfile?.attendance?.attendanceRate || 0;
+
+                return `
+                    <div class="student-item" onclick="selectStudent('${student.studentId || student.firestore_id}')">
+                        <div class="student-name">
+                            ${personalInfo.firstName} ${personalInfo.lastName}
+                        </div>
+                        <div class="student-details">
+                            Grade ${personalInfo.grade} • Section ${personalInfo.section} • GPA: ${gpa.toFixed(2)} • Attendance: ${(attendance * 100).toFixed(1)}%
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function selectStudent(studentId) {
+            selectedStudentId = studentId;
+
+            // Update visual selection
+            document.querySelectorAll('.student-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.target.closest('.student-item').classList.add('selected');
+
+            // Show loading
+            document.getElementById('meetingContent').innerHTML = '<div class="loading">Generating talking points...</div>';
+
+            try {
+                const response = await fetch(`/api/students/${studentId}/talking-points`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayTalkingPoints(result.data);
+                } else {
+                    showError('Failed to generate talking points: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error generating talking points:', error);
+                showError('Failed to generate talking points. Please try again.');
+            }
+        }
+
+        function displayTalkingPoints(data) {
+            const { talking_points, meeting_agenda } = data;
+            const summary = talking_points.meeting_summary;
+            const categories = talking_points.talking_points_by_category;
+
+            const content = `
+                <div class="meeting-summary">
+                    <h3>📊 Meeting Summary for ${summary.student_name}</h3>
+                    <p><strong>Date:</strong> ${summary.meeting_date} | <strong>Grade:</strong> ${summary.grade}</p>
+                    <p><strong>Overall Recommendation:</strong> ${summary.overall_recommendation}</p>
+                    
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">${summary.total_talking_points}</div>
+                            <div class="stat-label">Total Points</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${summary.high_priority_items}</div>
+                            <div class="stat-label">High Priority</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${summary.action_items}</div>
+                            <div class="stat-label">Action Items</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${talking_points.student_data_summary.current_gpa.toFixed(2)}</div>
+                            <div class="stat-label">Current GPA</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="generateMeetingSummary()">Generate AI Summary</button>
+                    <button class="btn btn-secondary" onclick="downloadAgenda()">Download Agenda</button>
+                </div>
+                
+                <div class="talking-points">
+                    ${Object.entries(categories).map(([category, points]) =>
+                points.length > 0 ? createCategorySection(category, points) : ''
+            ).join('')}
+                </div>
+            `;
+
+            document.getElementById('meetingContent').innerHTML = content;
+        }
+
+        function createCategorySection(category, points) {
+            const categoryTitles = {
+                academic: '📚 Academic Performance',
+                behavioral: '🎯 Behavioral Aspects',
+                social: '🤝 Social Development',
+                goals: '🎯 Goals & Progress',
+                recommendations: '💡 Recommendations'
+            };
+
+            const title = categoryTitles[category] || category.charAt(0).toUpperCase() + category.slice(1);
+
+            return `
+                <div class="talking-point-category">
+                    <div class="category-header" onclick="toggleCategory('${category}')">
+                        <span>${title} (${points.length})</span>
+                        <span id="toggle-${category}">▼</span>
+                    </div>
+                    <div class="category-content expanded" id="content-${category}">
+                        ${points.map(point => `
+                            <div class="talking-point ${point.priority}-priority">
+                                <div class="point-title">
+                                    <span>${point.title}</span>
+                                    <div>
+                                        <span class="priority-badge priority-${point.priority}">${point.priority.toUpperCase()}</span>
+                                        ${point.action_required ? '<span class="action-required">⚡ ACTION REQUIRED</span>' : ''}
+                                    </div>
+                                </div>
+                                <div class="point-content">${point.content}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleCategory(category) {
+            const content = document.getElementById(`content-${category}`);
+            const toggle = document.getElementById(`toggle-${category}`);
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                toggle.textContent = '▶';
+            } else {
+                content.classList.add('expanded');
+                toggle.textContent = '▼';
+            }
+        }
+
+        async function generateSyntheticData() {
+            const grade = document.getElementById('gradeFilter').value || '5';
+
+            try {
+                showSuccess('Generating synthetic data...');
+
+                const response = await fetch('/api/generate-synthetic-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        count: 5,
+                        grade: grade
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    loadStudents(); // Refresh the student list
+                } else {
+                    showError('Failed to generate data: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error generating data:', error);
+                showError('Failed to generate synthetic data.');
+            }
+        }
+
+        async function generateMeetingSummary() {
+            if (!selectedStudentId) {
+                showError('Please select a student first.');
+                return;
+            }
+
+            try {
+                showSuccess('Generating AI meeting summary...');
+
+                const response = await fetch('/api/meeting-summary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        student_id: selectedStudentId,
+                        notes: 'Generated from Sahayak parent-teacher meeting assistant'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Display the AI-generated summary in a modal or new section
+                    displayAISummary(result.data.meeting_summary);
+                    showSuccess('AI summary generated successfully!');
+                } else {
+                    showError('Failed to generate AI summary: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error generating AI summary:', error);
+                showError('Failed to generate AI summary.');
+            }
+        }
+
+        function displayAISummary(summary) {
+            // Remove any existing summary
+            const existingSummary = document.getElementById('aiSummaryContainer');
+            if (existingSummary) {
+                existingSummary.remove();
+            }
+
+            // Initialize markdown-it renderer
+            const md = window.markdownit({
+                html: true,
+                linkify: true,
+                typographer: true
+            });
+
+            // Convert markdown to HTML
+            const renderedSummary = md.render(summary);
+
+            // Create a modal or expand the current view to show the AI summary
+            const summaryHTML = `
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007bff;">
+                    <h4>🤖 AI-Generated Meeting Summary</h4>
+                    <div class="ai-summary-content" style="line-height: 1.6;">${renderedSummary}</div>
+                    <div style="margin-top: 15px; text-align: right;">
+                        <button class="btn btn-secondary" onclick="downloadMeetingSummary()" style="margin-right: 10px;">Download Summary</button>
+                        <button class="btn btn-primary" onclick="closeSummary(event)">Close</button>
+                    </div>
+                </div>
+            `;
+
+            // Insert after the meeting summary
+            const meetingContent = document.getElementById('meetingContent');
+            const summaryDiv = document.createElement('div');
+            summaryDiv.id = 'aiSummaryContainer';
+            summaryDiv.innerHTML = summaryHTML;
+            meetingContent.insertBefore(summaryDiv, meetingContent.children[2]);
+        }
+
+        function downloadMeetingSummary() {
+            const summaryContainer = document.getElementById('aiSummaryContainer');
+            if (!summaryContainer) {
+                showError('No meeting summary to download.');
+                return;
+            }
+
+            // Get the rendered HTML content
+            const summaryContent = summaryContainer.querySelector('.ai-summary-content').innerHTML;
+
+            // Convert HTML back to markdown-like text for download
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = summaryContent;
+            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+            // Create and download the file
+            const blob = new Blob([textContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `meeting-summary-${selectedStudentId}-${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showSuccess('Meeting summary downloaded successfully!');
+        }
+
+        function closeSummary(event) {
+            event.preventDefault();
+            const summaryContainer = document.getElementById('aiSummaryContainer');
+            if (summaryContainer) {
+                summaryContainer.remove();
+            }
+        }
+
+        function downloadAgenda() {
+            if (!selectedStudentId) {
+                showError('Please select a student first.');
+                return;
+            }
+
+            // This would implement agenda download functionality
+            showSuccess('Agenda download feature coming soon!');
+        }
+
+        function filterByGrade() {
+            const grade = document.getElementById('gradeFilter').value;
+
+            if (grade) {
+                const filtered = students.filter(student =>
+                    student.personalInfo?.grade === grade
+                );
+                displayStudents(filtered);
+            } else {
+                displayStudents(students);
+            }
+        }
+
+        function refreshStudents() {
+            loadStudents();
+        }
+
+        function showError(message) {
+            // Simple notification system
+            const notification = document.createElement('div');
+            notification.className = 'error';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const notification = document.createElement('div');
+            notification.className = 'success';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+
+    <!-- Include markdown-it library for rendering markdown content -->
+    <script src="https://unpkg.com/markdown-it@8.4.2/dist/markdown-it.min.js"></script>
+</body>
+
+</html>

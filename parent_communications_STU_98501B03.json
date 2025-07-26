@@ -1,0 +1,68 @@
+[
+  {
+    "communicationId": "COMM_3C0B7B5B",
+    "date": "2025-07-22T14:36:06.837417",
+    "type": "phone",
+    "initiatedBy": "parent",
+    "subject": "Positive Recognition",
+    "content": "Discussion about positive recognition - detailed communication record",
+    "followUpNeeded": false,
+    "followUpDate": "2025-08-08T14:36:06.837425",
+    "teacherId": "TEACH_353270"
+  },
+  {
+    "communicationId": "COMM_1CA0A692",
+    "date": "2025-07-12T14:36:06.837436",
+    "type": "phone",
+    "initiatedBy": "teacher",
+    "subject": "Assignment Missing",
+    "content": "Discussion about assignment missing - detailed communication record",
+    "followUpNeeded": true,
+    "followUpDate": "2025-08-07T14:36:06.837440",
+    "teacherId": "TEACH_4D33DA"
+  },
+  {
+    "communicationId": "COMM_BAB3450A",
+    "date": "2025-06-17T14:36:06.837447",
+    "type": "email",
+    "initiatedBy": "teacher",
+    "subject": "Attendance Issue",
+    "content": "Discussion about attendance issue - detailed communication record",
+    "followUpNeeded": false,
+    "followUpDate": "2025-07-27T14:36:06.837450",
+    "teacherId": "TEACH_0AA80B"
+  },
+  {
+    "communicationId": "COMM_F57F0222",
+    "date": "2025-06-30T14:36:06.837457",
+    "type": "meeting",
+    "initiatedBy": "parent",
+    "subject": "Behavioral Concerns",
+    "content": "Discussion about behavioral concerns - detailed communication record",
+    "followUpNeeded": false,
+    "followUpDate": "2025-08-09T14:36:06.837459",
+    "teacherId": "TEACH_12484F"
+  },
+  {
+    "communicationId": "COMM_C6E57169",
+    "date": "2025-07-03T14:36:06.837466",
+    "type": "note",
+    "initiatedBy": "teacher",
+    "subject": "Behavioral Concerns",
+    "content": "Discussion about behavioral concerns - detailed communication record",
+    "followUpNeeded": true,
+    "followUpDate": "2025-07-30T14:36:06.837468",
+    "teacherId": "TEACH_A512AA"
+  },
+  {
+    "communicationId": "COMM_FA0BA746",
+    "date": "2025-07-15T14:36:06.837474",
+    "type": "note",
+    "initiatedBy": "parent",
+    "subject": "Behavioral Concerns",
+    "content": "Discussion about behavioral concerns - detailed communication record",
+    "followUpNeeded": false,
+    "followUpDate": "2025-08-09T14:36:06.837476",
+    "teacherId": "TEACH_3B180D"
+  }
+]
