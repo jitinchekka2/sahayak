@@ -2,9 +2,10 @@
 API Integration for Parent-Teacher Meeting System
 Extends the existing Flask app with student data management endpoints
 """
-
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
+
 import json
 import os
 from dotenv import load_dotenv
@@ -13,7 +14,6 @@ from typing import Dict, List, Any, Optional, Union, Generator, Tuple
 # Import our custom modules - handle optional dependencies
 StudentDatabase = None
 TalkingPointsGenerator = None
-StudentDataGenerator = None
 generate_meeting_agenda = None
 
 # Try to import AI talking points (doesn't require Firebase)
@@ -35,13 +35,8 @@ except ImportError as e:
     FIREBASE_AVAILABLE = False
 
 # Try to import data generator (may have its own dependencies)
-try:
-    from generate_synthetic_data import StudentDataGenerator
-    DATA_GENERATOR_AVAILABLE = True
-    print("✅ Data generator loaded")
-except ImportError as e:
-    print(f"⚠️ Data generator not available: {e}")
-    DATA_GENERATOR_AVAILABLE = False
+# Removed - synthetic data generation not needed anymore
+DATA_GENERATOR_AVAILABLE = False
 
 load_dotenv()
 
@@ -52,14 +47,10 @@ class StudentMeetingAPI:
 
         # Initialize only if modules are available
         self.talking_points_generator = None
-        self.data_generator = None
 
         if AI_TALKING_POINTS_AVAILABLE and TalkingPointsGenerator:
             self.talking_points_generator = TalkingPointsGenerator()
             print("✅ AI talking points generator initialized")
-        if DATA_GENERATOR_AVAILABLE and StudentDataGenerator:
-            self.data_generator = StudentDataGenerator()
-            print("✅ Data generator initialized")
 
         # Initialize database if Firebase is available
         self.db = None
@@ -218,44 +209,6 @@ class StudentMeetingAPI:
             # This should never be reached, but add it for type safety
             return jsonify({"success": False, "error": "Invalid request method"}), 405
 
-        @self.app.route("/api/generate-synthetic-data", methods=["POST"])
-        def generate_synthetic_data():
-            """Generate synthetic student data"""
-            try:
-                req_data = request.get_json() or {}
-                count = req_data.get("count", 5)
-                grade = req_data.get("grade", "5")
-
-                # Generate synthetic data
-                if DATA_GENERATOR_AVAILABLE and self.data_generator:
-                    students = self.data_generator.generate_multiple_students(
-                        count, grade)
-                else:
-                    return jsonify({"success": False, "error": "Data generator not available"}), 503
-
-                # Save to database if available
-                if self.db:
-                    doc_ids = self.db.bulk_import_students(students)
-                    return jsonify({
-                        "success": True,
-                        "message": f"Generated and imported {len(students)} students",
-                        "data": {"document_ids": doc_ids, "students": students}
-                    })
-                else:
-                    # Save to local file
-                    filename = f"synthetic_students_grade_{grade}.json"
-                    with open(filename, 'w') as f:
-                        json.dump(students, f, indent=2, default=str)
-
-                    return jsonify({
-                        "success": True,
-                        "message": f"Generated {len(students)} students and saved to {filename}",
-                        "data": {"students": students}
-                    })
-
-            except Exception as e:
-                return jsonify({"success": False, "error": str(e)}), 500
-
         @self.app.route("/api/meeting-summary", methods=["POST"])
         def generate_meeting_summary():
             """Generate AI-powered meeting summary using Gemini"""
@@ -340,6 +293,197 @@ Keep the tone positive, constructive, and focused on the student's success.
             except Exception as e:
                 return jsonify({"success": False, "error": str(e)}), 500
 
+        @self.app.route("/api/students/<student_id>/download-agenda", methods=["GET"])
+        def download_agenda(student_id):
+            """Download meeting agenda as a formatted text file"""
+            try:
+                # Get student data
+                if self.db:
+                    student_data = self.db.get_complete_student_profile(
+                        student_id)
+                else:
+                    students = self.load_local_students()
+                    student_data = next(
+                        (s for s in students if s.get("studentId") == student_id), None)
+
+                if not student_data:
+                    return jsonify({"success": False, "error": "Student not found"}), 404
+
+                # Get student info for filename
+                first_name = student_data['personalInfo']['firstName']
+                last_name = student_data['personalInfo']['lastName']
+
+                # Generate talking points and agenda
+                if self.talking_points_generator:
+                    talking_points = self.talking_points_generator.generate_talking_points(
+                        student_data)
+                else:
+                    return jsonify({"success": False, "error": "AI talking points module not available"}), 503
+
+                # Generate meeting agenda
+                if generate_meeting_agenda:
+                    agenda_text = generate_meeting_agenda(talking_points)
+                    # Convert to dict format for consistency
+                    agenda = {
+                        "title": f"Parent-Teacher Conference - {first_name} {last_name}",
+                        "formatted_text": agenda_text,
+                        "duration": "30 minutes"
+                    }
+                else:
+                    # Create a basic agenda if the full generator isn't available
+                    agenda = self.create_basic_agenda(
+                        student_data, talking_points)
+
+                # Use the pre-formatted text if available, otherwise format it
+                if isinstance(agenda, dict) and 'formatted_text' in agenda:
+                    agenda_content = agenda['formatted_text']
+                else:
+                    agenda_content = self.format_agenda_for_download(
+                        student_data, agenda, talking_points)
+
+                # Create filename
+                filename = f"meeting_agenda_{first_name}_{last_name}_{talking_points['meeting_summary']['meeting_date'].replace(':', '-').replace(' ', '_')}.txt"
+
+                # Return file as download
+                response = make_response(agenda_content)
+                response.headers['Content-Type'] = 'text/plain; charset=utf-8'
+                response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)}), 500
+
+    def create_basic_agenda(self, student_data, talking_points):
+        """Create a basic agenda when full generator isn't available"""
+        first_name = student_data['personalInfo']['firstName']
+        last_name = student_data['personalInfo']['lastName']
+        grade = student_data['personalInfo']['grade']
+
+        return {
+            "title": f"Parent-Teacher Conference - {first_name} {last_name}",
+            "duration": "30 minutes",
+            "agenda_items": [
+                {
+                    "time": "5 minutes",
+                    "topic": "Welcome & Introductions",
+                    "description": "Brief welcome and agenda overview"
+                },
+                {
+                    "time": "10 minutes",
+                    "topic": "Academic Progress Review",
+                    "description": "Discussion of grades, assignments, and academic strengths"
+                },
+                {
+                    "time": "10 minutes",
+                    "topic": "Behavioral & Social Development",
+                    "description": "Classroom behavior, participation, and social interactions"
+                },
+                {
+                    "time": "5 minutes",
+                    "topic": "Next Steps & Action Items",
+                    "description": "Goals and follow-up actions for student success"
+                }
+            ]
+        }
+
+    def format_agenda_for_download(self, student_data, agenda, talking_points):
+        """Format the agenda as a readable text file"""
+        first_name = student_data['personalInfo']['firstName']
+        last_name = student_data['personalInfo']['lastName']
+        grade = student_data['personalInfo']['grade']
+        meeting_date = talking_points['meeting_summary']['meeting_date']
+
+        # Use a list to collect all parts, then join them
+        agenda_parts = [
+            "PARENT-TEACHER CONFERENCE AGENDA",
+            "=====================================",
+            "",
+            f"Student: {first_name} {last_name}",
+            f"Grade: {grade}",
+            f"Date: {meeting_date}",
+            f"Duration: {agenda.get('duration', '30 minutes')}",
+            "",
+            "AGENDA OVERVIEW:",
+            agenda.get('title', f'Conference for {first_name} {last_name}'),
+            "",
+            "MEETING STRUCTURE:"
+        ]
+
+        # Add agenda items
+        if 'agenda_items' in agenda:
+            for i, item in enumerate(agenda['agenda_items'], 1):
+                agenda_parts.extend([
+                    "",
+                    f"{i}. {item.get('topic', 'Discussion Item')} ({item.get('time', '5 minutes')})",
+                    f"   {item.get('description', '')}"
+                ])
+
+        # Add key talking points
+        agenda_parts.extend([
+            "",
+            "",
+            "KEY DISCUSSION POINTS:",
+            "=====================",
+            "",
+            "ACADEMIC STRENGTHS:"
+        ])
+
+        academic_points = talking_points.get(
+            'talking_points_by_category', {}).get('academic', [])
+        for point in academic_points[:3]:  # Top 3 academic points
+            if point.get('priority') in ['high', 'medium']:
+                agenda_parts.append(f"• {point.get('point', '')}")
+
+        agenda_parts.extend([
+            "",
+            "AREAS FOR GROWTH:"
+        ])
+
+        growth_points = [p for p in academic_points if 'improve' in p.get(
+            'point', '').lower() or 'develop' in p.get('point', '').lower()]
+        for point in growth_points[:2]:  # Top 2 growth areas
+            agenda_parts.append(f"• {point.get('point', '')}")
+
+        # Add behavioral insights
+        behavioral_points = talking_points.get(
+            'talking_points_by_category', {}).get('behavioral', [])
+        if behavioral_points:
+            agenda_parts.extend([
+                "",
+                "BEHAVIORAL OBSERVATIONS:"
+            ])
+            for point in behavioral_points[:3]:
+                agenda_parts.append(f"• {point.get('point', '')}")
+
+        # Add summary and goals
+        agenda_parts.extend([
+            "",
+            "",
+            "MEETING GOALS:",
+            "=============",
+            f"1. Celebrate {first_name}'s strengths and achievements",
+            "2. Discuss any areas needing attention or support",
+            "3. Align on strategies for continued growth",
+            "4. Set clear action items for home and school",
+            "",
+            "NOTES SECTION:",
+            "=============",
+            "(Space for additional notes during the meeting)",
+            "",
+            "_________________________________________________",
+            "",
+            "_________________________________________________",
+            "",
+            "_________________________________________________",
+            "",
+            "_________________________________________________",
+            "",
+            "",
+            "Generated by Sahayak Parent-Teacher Meeting Assistant"
+        ])
+
+        return '\n'.join(agenda_parts)
+
     def load_local_students(self) -> List[Dict[str, Any]]:
         """Load students from local JSON file as fallback"""
         try:
@@ -350,19 +494,16 @@ Keep the tone positive, constructive, and focused on the student's success.
 
     def generate_mock_assessments(self, student_id: str, limit: int) -> List[Dict[str, Any]]:
         """Generate mock assessment data for testing"""
-        if self.data_generator:
-            return self.data_generator.generate_assessments(student_id, limit)
-        else:
-            # Return mock data if generator not available
-            return [
-                {
-                    "id": f"mock_{i}",
-                    "student_id": student_id,
-                    "subject": "Math",
-                    "score": 85,
-                    "date": "2024-01-01"
-                } for i in range(limit)
-            ]
+        # Return mock data for testing purposes
+        return [
+            {
+                "id": f"mock_{i}",
+                "student_id": student_id,
+                "subject": "Math",
+                "score": 85,
+                "date": "2024-01-01"
+            } for i in range(limit)
+        ]
 
 # Update your existing main.py to include these new endpoints
 
@@ -503,6 +644,6 @@ if __name__ == "__main__":
     print("   GET  /api/students - List all students")
     print("   GET  /api/students/<id> - Get student details")
     print("   GET  /api/students/<id>/talking-points - Generate AI talking points")
-    print("   POST /api/generate-synthetic-data - Generate test data")
+    print("   GET  /api/students/<id>/download-agenda - Download meeting agenda")
     print("   POST /api/meeting-summary - Generate AI meeting summary")
     app.run(debug=True, port=5000)

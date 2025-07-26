@@ -1,8 +1,3 @@
-"""
-Firestore Integration for Student Data Management
-Handles database operations for the parent-teacher meeting system
-"""
-
 import firebase_admin
 from firebase_admin import credentials, firestore
 from typing import Dict, List, Any, Optional
