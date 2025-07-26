@@ -437,6 +437,48 @@ main {
   cursor: pointer;
 }
 
+/* Speaking Test Controls */
+.speaking-test-controls {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e8eaed;
+}
+
+.speaking-test-controls button {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+.speaking-test-controls button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4);
+}
+
+.speaking-test-controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+#recording-status {
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+}
+
 .tutor-start-container .suggestion-btn:hover {
   background: linear-gradient(135deg, #3367d6 0%, #2a56c6 100%);
   box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
