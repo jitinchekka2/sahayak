@@ -1,0 +1,10 @@
+# Ignore .venv directory
+.venv/
+# Ignore Python bytecode files
+*.pyc
+# ignore __pycache__ directories
+__pycache__/
+.* 
+!.gitignore
+#  ignore demo.py file
+demo.py
