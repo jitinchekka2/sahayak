@@ -572,11 +572,20 @@ def create_enhanced_app():
 
         CRITICAL RULES:
         1. Return ONLY the Mermaid code, no explanations or markdown formatting
-        2. Start directly with the diagram type (flowchart, sequenceDiagram, etc.)
-        3. Use proper Mermaid syntax - NEVER use semicolons (;) in flowcharts
-        4. Make the diagram clear and well-structured
-        5. Each edge must be on a new line
-        6. Avoid malformed connections
+        2. Start with 'graph LR' for left-to-right flowcharts
+        3. Use ONLY these syntax rules:
+           - Each node must have a unique ID and label: id[label]
+           - Example: A[Water] --> B[Steam]
+           - NO special characters or semicolons
+           - NO parentheses or curly braces
+        4. Each connection must be on a new line
+        5. ALL referenced nodes must be properly defined with labels
+        6. Keep labels short and clear
+        7. Use descriptive IDs (not just single letters)
+        8. Example format:
+           graph LR
+           water[Water] --> steam[Steam]
+           steam --> cloud[Cloud]
         """
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
@@ -593,43 +602,59 @@ def create_enhanced_app():
                     .strip()
             )
             
-            # Only keep the diagram part
+            # Process the diagram content
             lines = text.splitlines()
-            # Find the graph LR line
-            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
-            diagram_lines = ["graph LR"]  # Start with clean graph LR
+            processed_lines = []
             
-            # Process each line after graph LR
-            for line in lines[graph_start + 1:]:
+            for line in lines:
                 line = line.strip()
-                # Skip empty lines, comments, and non-diagram content
-                if not line or line.startswith("%") or ":" in line:
-                    continue
-                    
-                # Clean up the line
-                clean_line = (
-                    line.strip()
-                        .replace(";", "")  # Remove semicolons
-                        .replace("  ", " ")  # Remove double spaces
-                )
-                
-                # Only add lines that match the expected format: X --> Y or X[Label] --> Y[Label]
-                if "-->" in clean_line:
-                    parts = clean_line.split("-->")
+                if line.startswith("graph"):
+                    processed_lines.append("graph LR")  # Force left-to-right layout
+                elif "-->" in line:
+                    parts = line.split("-->")
                     if len(parts) == 2:
-                        # Ensure proper spacing around arrow
-                        clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
-                        diagram_lines.append(clean_line)
+                        source = parts[0].strip()
+                        target = parts[1].strip()
+                        
+                        # Clean up nodes and ensure proper ID-label format
+                        def clean_node(node):
+                            import re
+                            # Remove any special characters and extra spaces
+                            node = node.strip().replace(";", "")
+                            
+                            # Try to extract existing ID and label if present
+                            id_label_match = re.match(r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
+                            
+                            if id_label_match:
+                                # If node already has ID and label format
+                                node_id = id_label_match.group(1)
+                                label = id_label_match.group(2).strip()
+                            else:
+                                # If it's just text or incorrectly formatted
+                                # Clean up any existing brackets
+                                clean_text = re.sub(r'[\[\]\(\)\{\}]', '', node).strip()
+                                # Create an ID from the text
+                                node_id = re.sub(r'[^A-Za-z0-9_]', '', clean_text.lower())
+                                label = clean_text
+                                
+                            # Ensure we have a valid ID
+                            if not node_id:
+                                node_id = f"node_{len(processed_lines)}"
+                            
+                            # Return properly formatted node with ID and label
+                            return f"{node_id}[{label}]"
+                        
+                        source = clean_node(source)
+                        target = clean_node(target)
+                        
+                        processed_lines.append(f"{source} --> {target}")
             
-            # Join the lines with proper newlines
-            diagram = "\n".join(diagram_lines)
-            
-            # Log the final diagram for debugging
-            print("Final processed diagram:", diagram)
+            # Create the final diagram
+            diagram = "\n".join(processed_lines)
             
             # Log the generated diagram for debugging
-            print("Generated diagram:", diagram)
-
+            print("Generated Mermaid diagram:", diagram)
+            
             return jsonify({"diagram": diagram})
 
         except Exception as e:

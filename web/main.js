@@ -111,25 +111,47 @@ document.addEventListener('DOMContentLoaded', () => {
     - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
     Each worksheet should be clearly separated and labeled.`
       });
-    } else if (message && message.toLowerCase().startsWith("draw:")) {
-  const drawingPrompt = message.replace(/^draw:\s*/i, '');
+    } else {
+      // First, let's ask the LLM to determine if this is a diagram generation request
+      const routerResponse = await streamGemini({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [{ text: `Analyze if this request would benefit from a diagram/flowchart/visualization. 
+          Respond with YES if any of these are true:
+          1. It describes a process or cycle (like photosynthesis, water cycle, etc.)
+          2. It involves steps or stages in a sequence
+          3. It describes relationships between components
+          4. It explains a system or mechanism
+          5. It contains words like: process, cycle, steps, stages, flow, mechanism
+          6. It's explaining a scientific concept with multiple parts
+          
+          Only respond with "YES" or "NO": "${message}"` }]
+        }]
+      });
 
-  try {
-    // Use the new function to get the diagram code
-    const diagramCode = await generateMermaid(drawingPrompt);
+      let shouldGenerateDiagram = false;
+      for await (let chunk of routerResponse) {
+        if (chunk.trim().toUpperCase() === 'YES') {
+          shouldGenerateDiagram = true;
+          break;
+        }
+      }
 
-    // Directly render the Mermaid diagram in the UI
-    const assistantElement = addAssistantMessage('');
-    renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
-    return; // Skip Gemini streaming since we already handled it
-  } catch (err) {
-    addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
-    return;
-  }
-}
- else {
-      // Regular assistant query
-      parts.push({ text: message });
+      if (shouldGenerateDiagram) {
+        try {
+          const diagramCode = await generateMermaid(message);
+          const assistantElement = addAssistantMessage('');
+          renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+          return; // Skip regular Gemini streaming
+        } catch (err) {
+          addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
+          return;
+        }
+      } else {
+        // Regular assistant query
+        parts.push({ text: message });
+      }
     }
 
 
