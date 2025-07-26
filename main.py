@@ -1,3 +1,7 @@
+"""
+API Integration for Parent-Teacher Meeting System
+Extends the existing Flask app with student data management endpoints
+"""
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
 import json
@@ -575,7 +579,6 @@ def create_enhanced_app():
         """
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
-
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(full_prompt)
@@ -587,6 +590,59 @@ def create_enhanced_app():
                     .replace("```", "")
                     .strip()
             )
+            
+            # Process the diagram content
+            lines = text.splitlines()
+            processed_lines = []
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith("graph"):
+                    processed_lines.append("graph LR")  # Force left-to-right layout
+                elif "-->" in line:
+                    parts = line.split("-->")
+                    if len(parts) == 2:
+                        source = parts[0].strip()
+                        target = parts[1].strip()
+                        
+                        # Clean up nodes and ensure proper ID-label format
+                        def clean_node(node):
+                            import re
+                            # Remove any special characters and extra spaces
+                            node = node.strip().replace(";", "")
+                            
+                            # Try to extract existing ID and label if present
+                            id_label_match = re.match(r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
+                            
+                            if id_label_match:
+                                # If node already has ID and label format
+                                node_id = id_label_match.group(1)
+                                label = id_label_match.group(2).strip()
+                            else:
+                                # If it's just text or incorrectly formatted
+                                # Clean up any existing brackets
+                                clean_text = re.sub(r'[\[\]\(\)\{\}]', '', node).strip()
+                                # Create an ID from the text
+                                node_id = re.sub(r'[^A-Za-z0-9_]', '', clean_text.lower())
+                                label = clean_text
+                                
+                            # Ensure we have a valid ID
+                            if not node_id:
+                                node_id = f"node_{len(processed_lines)}"
+                            
+                            # Return properly formatted node with ID and label
+                            return f"{node_id}[{label}]"
+                        
+                        source = clean_node(source)
+                        target = clean_node(target)
+                        
+                        processed_lines.append(f"{source} --> {target}")
+            
+            # Create the final diagram
+            diagram = "\n".join(processed_lines)
+            
+            # Log the generated diagram for debugging
+            print("Generated Mermaid diagram:", diagram)
             
             # Only keep the diagram part
             lines = text.splitlines()
@@ -621,6 +677,7 @@ def create_enhanced_app():
             
             # Log the final diagram for debugging
             print("Final processed diagram:", diagram)
+
             return jsonify({"diagram": diagram})
 
         except Exception as e:
@@ -676,6 +733,7 @@ def create_enhanced_app():
         except Exception as e:
             print(f"An error occurred: {e}")
             return jsonify({"error": str(e)}), 500
+
     return app
 
 if __name__ == "__main__":
