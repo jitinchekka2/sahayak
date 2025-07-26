@@ -102,57 +102,85 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add user message to chat
     addUserMessage(message, attachedImageData?.dataUrl);
-
-    // Add user message to conversation history
-    const parts = [];
-    const isWorksheetMode = !!attachedImageData;
+    try {
+      // Prepare API request
+      const parts = [];
+      const isWorksheetMode = !!currentAttachment;
 
     if (isWorksheetMode) {
+      // Worksheet generator logic
       parts.push({
         inline_data: {
-          mime_type: attachedImageData.mimeType,
-          data: attachedImageData.base64
+          mime_type: currentAttachment.mimeType,
+          data: currentAttachment.base64
         }
       });
 
       parts.push({
         text: `Based on this textbook page image, generate 3 differentiated worksheets:
-  - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
-  - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
-  - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
-  Each worksheet should be clearly separated and labeled.`
+    - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
+    - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
+    - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
+    Each worksheet should be clearly separated and labeled.`
       });
-    } else if (message && message.toLowerCase().startsWith("draw:")) {
-      const drawingPrompt = message.replace(/^draw:\s*/i, '');
-      try {
-        const diagramCode = await generateMermaid(drawingPrompt);
-        const assistantElement = addAssistantMessage('');
-        renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
-        return;
-      } catch (err) {
-        addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
-        return;
-      }
     } else {
-      parts.push({ text: message });
+      // First, let's ask the LLM to determine if this is a diagram generation request
+      const routerResponse = await streamGemini({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [{ text: `Analyze if this request would benefit from a diagram/flowchart/visualization. 
+          Respond with YES if any of these are true:
+          1. It describes a process or cycle (like photosynthesis, water cycle, etc.)
+          2. It involves steps or stages in a sequence
+          3. It describes relationships between components
+          4. It explains a system or mechanism
+          5. It contains words like: process, cycle, steps, stages, flow, mechanism
+          6. It's explaining a scientific concept with multiple parts
+          
+          Only respond with "YES" or "NO": "${message}"` }]
+        }]
+      });
+
+      let shouldGenerateDiagram = false;
+      for await (let chunk of routerResponse) {
+        if (chunk.trim().toUpperCase() === 'YES') {
+          shouldGenerateDiagram = true;
+          break;
+        }
+      }
+
+      if (shouldGenerateDiagram) {
+        try {
+          const diagramCode = await generateMermaid(message);
+          const assistantElement = addAssistantMessage('');
+          renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+          return; // Skip regular Gemini streaming
+        } catch (err) {
+          addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
+          return;
+        }
+      } else {
+        // Regular assistant query
+        parts.push({ text: message });
+      }
     }
 
-    conversationHistory.push({
-      role: 'user',
-      parts: parts
-    });
 
-    // Clear input and attachment
-    messageInput.value = '';
-    attachedImageData = null;
-    attachedImageDiv.style.display = 'none';
-    imageUpload.value = '';
-
-    // Show typing indicator
-    const typingElement = addTypingIndicator();
-
-    try {
-      // Call API with the full conversation history
+      const contents = [
+        {
+          role: 'user',
+          parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
+        },
+        {
+          role: 'model',
+          parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
+        },
+        {
+          role: 'user',
+          parts: parts
+        }
+      ];
       const stream = streamGemini({
         model: 'gemini-2.0-flash',
         contents: conversationHistory,
@@ -172,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
         fullContent += chunk;
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
+      }
+      if (fullContent.includes('flowchart')) {
+        renderMermaidDiagram(fullContent, contentElement);
       }
 
       // Add assistant response to conversation history
@@ -213,7 +244,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderMermaidDiagram(code, container) {
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
-  mermaidDiv.textContent = code.trim();
+  mermaidDiv.textContent = code.trim(); // No regex needed now
+
 
   const codeBox = document.createElement('pre');
   codeBox.textContent = mermaidDiv.textContent;
