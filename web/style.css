@@ -368,3 +368,41 @@ main {
 ::-webkit-scrollbar-thumb:hover {
   background: #bdc1c6;
 }
+
+/* Reading Tutor Styles */
+.reading-tutor-container {
+  padding: 24px;
+  margin: 40px 0;
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  border: 1px solid #e8eaed;
+}
+
+.reading-tutor-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #3c4043;
+}
+
+.reading-text {
+  background-color: #f8f9fa;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  line-height: 1.8;
+  color: #5f6368;
+}
+
+.reading-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* New Style for the Start Button Container */
+.tutor-start-container {
+  text-align: center;
+  margin: 20px 0;
+}

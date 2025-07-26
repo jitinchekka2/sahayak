@@ -1,15 +1,11 @@
-"""
-API Integration for Parent-Teacher Meeting System
-Extends the existing Flask app with student data management endpoints
-"""
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
-from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
-
 import json
 import os
 from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Union, Generator, Tuple
+
+DEFAULT_GENAI_MODEL = "models/gemini-1.5-pro-latest"
 
 # Import our custom modules - handle optional dependencies
 StudentDatabase = None
@@ -629,6 +625,56 @@ def create_enhanced_app():
 
         except Exception as e:
             print("Error in generate_mermaid:", e)  # Debug log
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route("/api/analyze_reading", methods=["POST"])
+    def analyze_reading_api():
+        if 'audio_file' not in request.files:
+            return jsonify({"error": "No audio file found"}), 400
+
+        audio_file = request.files['audio_file']
+        original_text = request.form.get('original_text')
+
+        if not original_text:
+            return jsonify({"error": "Original text is missing"}), 400
+
+        try:
+            # Read the audio bytes directly to send them inline
+            audio_bytes = audio_file.read()
+            
+            model = genai.GenerativeModel(DEFAULT_GENAI_MODEL)
+            
+            # Send audio data inline with the prompt for transcription
+            transcription_response = model.generate_content([
+                "Transcribe the following audio.",
+                {"mime_type": "audio/webm", "data": audio_bytes}
+            ])
+            transcribed_text = transcription_response.text
+
+            analysis_prompt = f"""
+            You are an expert English pronunciation and reading coach.
+            A student was asked to read the following text:
+            ---
+            Original Text: "{original_text}"
+            ---
+            The student's reading was transcribed from audio as:
+            ---
+            Student's Transcription: "{transcribed_text}"
+            ---
+            Please analyze the student's performance. Compare the original text with the student's transcription to identify any errors (missed words, mispronounced words, extra words).
+
+            Provide your feedback in a markdown format with the following sections:
+            - **Overall Score**: A score out of 100 based on accuracy, fluency, and clarity.
+            - **Feedback**: Specific, constructive feedback.
+            - **Corrections**: The student's transcription with corrections.
+            """
+
+            analysis_response = model.generate_content(analysis_prompt)
+
+            return jsonify({"analysis": analysis_response.text})
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
             return jsonify({"error": str(e)}), 500
     return app
 

@@ -274,3 +274,113 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+// --- Reading Tutor Logic ---
+
+const showTutorBtn = document.getElementById('show-tutor-btn');
+const readingTutorContainer = document.querySelector('.reading-tutor-container');
+const startRecordBtn = document.getElementById('start-record-btn');
+const stopRecordBtn = document.getElementById('stop-record-btn');
+const readingText = document.getElementById('reading-text');
+const readingResultsDiv = document.getElementById('reading-results');
+const readingResultsContent = readingResultsDiv.querySelector('.message-content');
+
+let mediaRecorder;
+let audioChunks = [];
+
+const paragraphs = [
+    "The sun dipped below the horizon, painting the sky in shades of orange and pink. A gentle breeze rustled the leaves in the trees, creating a soft, whispering sound.",
+    "Technology has advanced at an incredible pace over the last few decades. From the first computers to the powerful devices in our pockets, the change has been monumental.",
+    "A balanced diet and regular exercise are crucial for maintaining good health. It is important to consume a variety of nutrients and stay active to keep your body and mind in top shape.",
+    "The old library was a quiet sanctuary, filled with the scent of aged paper and leather-bound books. Every shelf held stories waiting to be discovered by an eager reader."
+];
+
+showTutorBtn.addEventListener('click', () => {
+    const randomIndex = Math.floor(Math.random() * paragraphs.length);
+    readingText.innerText = paragraphs[randomIndex];
+    readingResultsDiv.style.display = 'none';
+    readingResultsContent.innerHTML = '';
+    readingTutorContainer.style.display = 'block';
+    startRecordBtn.disabled = false;
+    startRecordBtn.innerText = 'Start Recording';
+    stopRecordBtn.disabled = true;
+});
+
+startRecordBtn.addEventListener('click', async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Your browser does not support audio recording.');
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    
+    const options = { mimeType: 'audio/webm;codecs=opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        console.warn(`${options.mimeType} is not supported, using browser default.`);
+        mediaRecorder = new MediaRecorder(stream);
+    } else {
+        mediaRecorder = new MediaRecorder(stream, options);
+    }
+
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, { type: options.mimeType });
+      audioChunks = [];
+
+      if (audioBlob.size === 0) {
+        alert("Recording was empty. Please try recording for a longer duration.");
+        stopRecordBtn.disabled = true;
+        startRecordBtn.disabled = false;
+        startRecordBtn.innerText = 'Start Recording';
+        return;
+      }
+
+      readingResultsContent.innerHTML = 'Analyzing your reading... Please wait.';
+      readingResultsDiv.style.display = 'block';
+
+      const formData = new FormData();
+      formData.append('audio_file', audioBlob, 'recording.webm');
+      formData.append('original_text', readingText.innerText);
+
+      try {
+        const response = await fetch('/api/analyze_reading', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+          readingResultsContent.innerText = `Error: ${result.error}`;
+        } else {
+          const md = new markdownit();
+          readingResultsContent.innerHTML = md.render(result.analysis);
+        }
+      } catch (error) {
+        readingResultsContent.innerText = `An unexpected error occurred: ${error.message}`;
+      }
+
+      stopRecordBtn.disabled = true;
+      startRecordBtn.disabled = false;
+      startRecordBtn.innerText = 'Start Recording';
+    };
+
+    mediaRecorder.start();
+    startRecordBtn.disabled = true;
+    startRecordBtn.innerText = 'Recording...';
+    stopRecordBtn.disabled = false;
+  } catch (error) {
+    alert(`Error starting recording: ${error.message}`);
+    startRecordBtn.disabled = false;
+  }
+});
+
+stopRecordBtn.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+});
