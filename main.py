@@ -1,15 +1,11 @@
-"""
-API Integration for Parent-Teacher Meeting System
-Extends the existing Flask app with student data management endpoints
-"""
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
-from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
-
 import json
 import os
 from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Union, Generator, Tuple
+
+DEFAULT_GENAI_MODEL = "models/gemini-1.5-pro-latest"
 
 # Import our custom modules - handle optional dependencies
 StudentDatabase = None
