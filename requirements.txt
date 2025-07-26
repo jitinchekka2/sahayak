@@ -1,9 +1,28 @@
-# Dev environment
-pip
-autopep8
-python-dotenv
+# Parent-Teacher Meeting System Requirements
 
-# App
-google-genai # Client library for the Gemini API
-Pillow # PIL image-loading library
-flask
+# Core Flask and API dependencies
+flask>=2.3.0
+python-dotenv>=1.0.0
+
+# Google AI/Gemini
+google-generativeai>=0.3.0
+
+# Firebase (optional - for production Firestore integration)
+firebase-admin>=6.0.0
+
+# Data processing and utilities
+python-dateutil>=2.8.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-flask>=1.2.0
+
+# Additional utilities for data generation
+uuid
+datetime
+statistics
+dataclasses
+
+# JSON handling (built-in)
+# typing (built-in)
+# random (built-in)

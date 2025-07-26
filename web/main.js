@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      // TODO: Maintain a chat history
       const contents = [
         {
           role: 'user',
