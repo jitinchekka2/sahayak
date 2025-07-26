@@ -8,3 +8,8 @@ __pycache__/
 !.gitignore
 #  ignore demo.py file
 demo.py
+
+# Ignore tmp directory
+tmp/
+# ignore credentials.json file
+credentials.json
