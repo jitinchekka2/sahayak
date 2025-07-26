@@ -67,12 +67,26 @@
         <div class="suggestions" id="suggestions">
           <button class="suggestion-btn" data-suggestion="What can you help me with?">What can you help me
             with?</button>
-          <button class="suggestion-btn" data-suggestion="I want to practice speaking">🎤 Practice Speaking</button>
           <button class="suggestion-btn" data-suggestion="Analyze this image">Analyze this image</button>
-          <button class="suggestion-btn" data-suggestion="Help me with pronunciation">Help with pronunciation</button>
           <button class="suggestion-btn" data-suggestion="Write a creative story">Write a creative story</button>
           <button class="suggestion-btn" data-suggestion="Help me with coding">Help me with coding</button>
         </div>
+      </div>
+    </div>
+    <div class="tutor-start-container">
+        <button id="show-tutor-btn" class="suggestion-btn">Take a Speaking Test</button>
+    </div>
+
+    <div class="reading-tutor-container" style="display: none;">
+      <h2>Reading Practice</h2>
+      <p class="reading-text" id="reading-text"></p>
+      <div class="reading-controls">
+        <button id="start-record-btn" class="suggestion-btn">Start Recording</button>
+        <button id="stop-record-btn" class="suggestion-btn" disabled>Stop Recording</button>
+      </div>
+      <div id="reading-results" class="message assistant-message" style="display: none;">
+        <div class="message-content">
+          </div>
       </div>
     </div>
   </main>
