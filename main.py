@@ -563,7 +563,6 @@ def create_enhanced_app():
     def generate_mermaid():
         data = request.json
         prompt = data.get("prompt")
-
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
@@ -626,10 +625,6 @@ def create_enhanced_app():
             
             # Log the final diagram for debugging
             print("Final processed diagram:", diagram)
-            
-            # Log the generated diagram for debugging
-            print("Generated diagram:", diagram)
-
             return jsonify({"diagram": diagram})
 
         except Exception as e:
