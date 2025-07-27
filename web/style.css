@@ -19,6 +19,8 @@ main {
   display: flex;
   flex-direction: column;
   position: relative;
+  padding: 0 24px;
+  width: 100%;
 }
 
 .header {
@@ -85,6 +87,12 @@ main {
   padding: 16px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
   border: 1px solid #e8eaed;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  overflow: hidden;
+  width: 100%;
 }
 
 .user-message {
@@ -95,12 +103,12 @@ main {
 .user-message .message-content {
   background: #4285f4;
   color: white;
-  max-width: 80%;
+  max-width: 85%;
 }
 
 .assistant-message .message-content {
   background: white;
-  max-width: 100%;
+  width: 100%;
 }
 
 .message-image {
@@ -318,10 +326,19 @@ main {
   display: none;
 }
 
+/* Hide the Take a Speaking Test button after first message */
+.messages:not(:empty)~.tutor-start-container {
+  display: none;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
+  main {
+    padding: 0 16px;
+  }
+
   .header {
-    padding: 40px 16px 24px;
+    padding: 40px 0px 24px;
   }
 
   .header h1 {
@@ -394,4 +411,202 @@ main {
 
 .assessment-btn:active {
   transform: scale(0.98);
+}
+
+/* Reading Tutor Styles */
+.reading-tutor-container {
+  padding: 24px;
+  margin: 40px 0;
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  border: 1px solid #e8eaed;
+}
+
+.reading-tutor-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #3c4043;
+}
+
+.reading-text {
+  background-color: #f8f9fa;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  line-height: 1.8;
+  color: #5f6368;
+}
+
+.reading-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* New Style for the Start Button Container */
+.tutor-start-container {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px 0;
+  border-top: 1px solid #e8eaed;
+}
+
+.tutor-start-container .suggestion-btn {
+  background: linear-gradient(135deg, #4285f4 0%, #3367d6 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+/* Speaking Test Controls */
+.speaking-test-controls {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e8eaed;
+}
+
+.speaking-test-controls button {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+.speaking-test-controls button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4);
+}
+
+.speaking-test-controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+#recording-status {
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tutor-start-container .suggestion-btn:hover {
+  background: linear-gradient(135deg, #3367d6 0%, #2a56c6 100%);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Text overflow and formatting fixes */
+.message-content pre,
+.message-content code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.message-content pre {
+  background: #f8f9fa;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.message-content code {
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 14px;
+}
+
+.message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 14px;
+  overflow-x: auto;
+  display: table;
+  /* Keep as table for proper quiz formatting */
+}
+
+.message-content table th,
+.message-content table td {
+  border: 1px solid #e8eaed;
+  padding: 8px 12px;
+  text-align: left;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  /* Allow text wrapping */
+  vertical-align: top;
+  /* Align content to top */
+}
+
+.message-content table th {
+  background-color: #f8f9fa;
+  font-weight: 500;
+}
+
+/* For quiz content that's not in tables */
+.message-content ol,
+.message-content ul {
+  padding-left: 20px;
+  margin: 12px 0;
+}
+
+.message-content ol li,
+.message-content ul li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+/* Responsive table for mobile - only when needed */
+@media (max-width: 768px) {
+  .message-content table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .message-content table thead,
+  .message-content table tbody {
+    display: table;
+    width: 100%;
+  }
+}
+
+.message-content table tr {
+  display: table-row;
+}
+
+.message-content .mermaid {
+  max-width: 100%;
+  overflow-x: auto;
 }
