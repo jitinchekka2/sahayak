@@ -94,16 +94,20 @@ Access the deployed application at: [https://agentic-ai-hackathon-467108.web.app
 
 ## Features
 1. **AI-Generated Talking Points**: Automatically analyzes student data to identify key discussion points categorized by academic performance, behavioral aspects, social development, and goals.
-<img> src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/talking_points.png" alt="AI-Generated Talking Points" width="600">
-2. **Meeting Dashboard**: An intuitive interface for teachers to select students and view personalized talking points.
-<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/meeting_dashboard.png" alt="Meeting Dashboard" width="600">
+<img src="https://github.com/jitinchekka2/sahayak/blob/firebase-host/staticfiles/ptm_generateAISummary.png?raw=true" alt="AI-Generated Talking Points" width="600">
+2. **Speaking test**: Interactive speaking test and pronunciation evaluation for students.
+<img src="https://github.com/jitinchekka/sahayak/firebase-host/staticfiles/speaking_test.png?raw=true" alt="Speaking Test" width="600">
 3. **Downloadable Meeting Agendas**: Generate and download structured meeting agendas for each student.
-<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/download_agenda.png" alt="Downloadable Meeting Agendas" width="600">
+<img src="https://github.com/jitinchekka/sahayak/firebase-host/staticfiles/download_agenda.png?raw=true" alt="Downloadable Meeting Agendas" width="600">
 4. **AI Meeting Summaries**: Generate comprehensive meeting summaries using Gemini AI.
-<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/meeting_summary.png" alt="AI Meeting Summaries" width="600">
-5. **Quiz and Speaking Practice**: Interactive speaking test and pronunciation evaluation for students.
-<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/speaking_test.png" alt="Quiz and Speaking Practice" width="600">
-6. **
+<img src="https://github.com/jitinchekka/sahayak/firebase-host/staticfiles/ptm_generateAISummary.png?raw=true" alt="AI Meeting Summaries" width="600">
+5. **Interact through audio**: Interactive speaking test and pronunciation evaluation for students.
+<img src="https://github.com/jitinchekka2/sahayak/blob/firebase-host/staticfiles/voice_interaction.png?raw=true" alt="Quiz and Speaking Practice" width="600">
+6. **Mermaid Integration**: Visualize student data and meeting agendas using Mermaid diagrams.
+<img src="https://github.com/jitinchekka2/sahayak/blob/firebase-host/staticfiles/mermaid.jpeg?raw=true" alt="Mermaid Integration" width="600">
+7. **Generate Quiz anytime**: Generate quizzes on the fly based on the images or files provided by the user.
+<img src="https://github.com/jitinchekka2/sahayak/blob/firebase-host/staticfiles/quiz.png?raw=true" alt="Generate Quiz anytime" width="600">
+
 ## License
 
 This project is licensed under the MIT
