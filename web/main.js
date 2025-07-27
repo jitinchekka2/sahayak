@@ -21,22 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
   messageInput.focus();
   scrollToBottom();
 
-  // Add suggestion click handlers
   const suggestionButtons = document.querySelectorAll('.suggestion-btn');
   suggestionButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const suggestion = btn.dataset.suggestion;
-      messageInput.value = suggestion;
+      messageInput.value = btn.dataset.suggestion;
       messageInput.focus();
     });
   });
 
-  // Handle attach button click
-  attachButton.addEventListener('click', () => {
-    imageUpload.click();
-  });
+  attachButton.addEventListener('click', () => imageUpload.click());
 
-  // Handle file selection
   imageUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
@@ -47,8 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
           mimeType: file.type,
           dataUrl: event.target.result
         };
-
-        // Show preview
         attachedPreview.src = event.target.result;
         attachedImageDiv.style.display = 'block';
       };
@@ -56,63 +48,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle remove attachment
   removeAttachmentBtn.addEventListener('click', () => {
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
     imageUpload.value = '';
   });
 
-  // Handle form submission
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const message = messageInput.value.trim();
+    if (!message && !attachedImageData) return;
 
-    if (!message && !attachedImageData) {
-      return;
-    }
-
-    // Disable form
     messageInput.disabled = true;
     sendButton.disabled = true;
 
-    // Add user message to chat
     addUserMessage(message, attachedImageData?.dataUrl);
-
-    // Clear input and attachment
     messageInput.value = '';
+
     const currentAttachment = attachedImageData;
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
     imageUpload.value = '';
 
-    // Show typing indicator
     const typingElement = addTypingIndicator();
 
     try {
-      // Prepare API request
-      const parts = [];
-      const isWorksheetMode = !!currentAttachment;
+      const isAssessmentRequest = /(quiz|test|assessment|mcq|questions|evaluate|evaluate me|assess me|test me)/i.test(message) && currentAttachment;
 
-    if (isWorksheetMode) {
-      // Worksheet generator logic
-      parts.push({
-        inline_data: {
-          mime_type: currentAttachment.mimeType,
-          data: currentAttachment.base64
-        }
-      });
+      if (isAssessmentRequest) {
+        typingElement.remove();
+        showAssessmentOptions(currentAttachment, message);
+        return;
+      }
 
-      parts.push({
-        text: `Based on this textbook page image, generate 3 differentiated worksheets:
-    - Grade 3: Simple instructions, 3 easy comprehension questions, and one creative drawing activity.
-    - Grade 6: Moderate complexity, 3 analytical questions, and one summarization activity.
-    - Grade 9: Higher-order thinking questions, a critical thinking task, and one research prompt.
-    Each worksheet should be clearly separated and labeled.`
-      });
-    } else {
-      // First, let's ask the LLM to determine if this is a diagram generation request
       const routerResponse = await streamGemini({
         model: 'gemini-2.0-flash',
         contents: [{
@@ -139,74 +107,41 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (shouldGenerateDiagram) {
-        try {
-          const diagramCode = await generateMermaid(message);
-          const assistantElement = addAssistantMessage('');
-          renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
-          return; // Skip regular Gemini streaming
-        } catch (err) {
-          addAssistantMessage(`Error generating Mermaid diagram: ${err.message}`);
-          return;
-        }
-      } else {
-        // Regular assistant query
-        parts.push({ text: message });
+        const diagramCode = await generateMermaid(message);
+        const assistantElement = addAssistantMessage('');
+        renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+        return;
       }
-    }
 
-
+      const parts = [{ text: message }];
       const contents = [
-        {
-          role: 'user',
-          parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }]
-        },
-        {
-          role: 'model',
-          parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }]
-        },
-        {
-          role: 'user',
-          parts: parts
-        }
+        { role: 'user', parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }] },
+        { role: 'model', parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }] },
+        { role: 'user', parts }
       ];
 
-      // Call API
-      const stream = streamGemini({
-        model: 'gemini-2.0-flash',
-        contents,
-      });
-
-      // Remove typing indicator and add assistant message
+      const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
       typingElement.remove();
       const assistantElement = addAssistantMessage('');
       const contentElement = assistantElement.querySelector('.message-content');
-
-      // Stream response
-      let buffer = [];
+      const buffer = [];
       const md = new markdownit();
-      let fullContent = '';
+
       for await (let chunk of stream) {
         buffer.push(chunk);
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
       }
-      if (fullContent.includes('flowchart')) {
-        renderMermaidDiagram(fullContent, contentElement);
-      }
-
     } catch (error) {
-      // Remove typing indicator and show error
       typingElement.remove();
       addAssistantMessage(`Sorry, I encountered an error: ${error.message}`);
     } finally {
-      // Re-enable form
       messageInput.disabled = false;
       sendButton.disabled = false;
       messageInput.focus();
     }
   });
 
-  // Handle Enter key (without Shift)
   messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -215,71 +150,114 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+
+function showAssessmentOptions(imageData, userMessage) {
+  const assistantElement = addAssistantMessage('<strong>Select the type of assessment you want:</strong>', true);
+  const container = document.createElement('div');
+  container.className = 'assessment-options';
+
+  const types = ['MCQs', 'Fill in the Blanks', 'Short Answers'];
+  types.forEach(type => {
+    const btn = document.createElement('button');
+    btn.textContent = type;
+    btn.className = 'btn assessment-btn';
+    btn.addEventListener('click', () => generateAssessment(type, imageData, userMessage, assistantElement));
+    container.appendChild(btn);
+  });
+
+  assistantElement.querySelector('.message-content').appendChild(container);
+}
+
+async function generateAssessment(type, imageData, userMessage, assistantElement) {
+  const promptMap = {
+    'MCQs': `Generate 5 multiple choice questions from this textbook page image.`,
+    'Fill in the Blanks': `Generate 5 fill-in-the-blank questions based on this image.`,
+    'Short Answers': `Generate 5 short answer questions from the textbook page image.`
+  };
+
+  const parts = [
+    {
+      inline_data: {
+        mime_type: imageData.mimeType,
+        data: imageData.base64
+      }
+    },
+    { text: promptMap[type] }
+  ];
+
+  const contents = [
+    { role: 'user', parts }
+  ];
+
+  const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
+  const contentElement = assistantElement.querySelector('.message-content');
+  contentElement.innerHTML = `<strong>${type}:</strong><br>`;
+  const buffer = [];
+  const md = new markdownit();
+
+  for await (let chunk of stream) {
+    buffer.push(chunk);
+    const rendered = md.render(buffer.join('').replace(/\([a-d]\)\s*/g, '\n$& '));
+    contentElement.innerHTML = rendered;
+    scrollToBottom();
+  }
+}
+
+// Utility
 function renderMermaidDiagram(code, container) {
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
-  mermaidDiv.textContent = code.trim(); // No regex needed now
-
+  mermaidDiv.textContent = code.trim();
   const codeBox = document.createElement('pre');
   codeBox.textContent = mermaidDiv.textContent;
-
   container.innerHTML = '';
   container.appendChild(mermaidDiv);
   container.appendChild(document.createElement('hr'));
   container.appendChild(codeBox);
-
   if (window.mermaid) {
     window.mermaid.initialize({ startOnLoad: false });
     window.mermaid.init(undefined, mermaidDiv);
   }
 }
 
-
-// Helper functions
 function addUserMessage(text, imageUrl = null) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message user-message';
-
-  let content = '';
-  if (imageUrl) {
-    content += `<img src="${imageUrl}" class="message-image" alt="User uploaded image">`;
-  }
-  if (text) {
-    content += `<p>${escapeHtml(text)}</p>`;
-  }
-
-  messageDiv.innerHTML = `
+  const div = document.createElement('div');
+  div.className = 'message user-message';
+  div.innerHTML = `
     <div class="message-content">
-      ${content}
-    </div>
-  `;
-
-  messages.appendChild(messageDiv);
+      ${imageUrl ? `<img src="${imageUrl}" class="message-image">` : ''}
+      ${text ? `<p>${escapeHtml(text)}</p>` : ''}
+    </div>`;
+  messages.appendChild(div);
   scrollToBottom();
-  return messageDiv;
+  return div;
 }
 
-function addAssistantMessage(text) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message assistant-message';
-  messageDiv.innerHTML = `
-    <div class="message-content">
-      ${text}
-    </div>
-  `;
+function addAssistantMessage(content, isHTML = false) {
+  const messageElement = document.createElement('div');
+  messageElement.className = 'message assistant-message';
 
-  messages.appendChild(messageDiv);
-  scrollToBottom();
-  return messageDiv;
+  const messageContent = document.createElement('div');
+  messageContent.className = 'message-content';
+
+  // 🛠️ Allow HTML or plain text rendering
+  if (isHTML) {
+    messageContent.innerHTML = content;
+  } else {
+    messageContent.textContent = content;
+  }
+
+  messageElement.appendChild(messageContent);
+  document.getElementById('messages').appendChild(messageElement);
+  return messageElement;
 }
 
 function addTypingIndicator() {
-  const typingDiv = document.createElement('div');
-  typingDiv.className = 'message assistant-message typing-indicator';
-
-  messages.appendChild(typingDiv);
+  const div = document.createElement('div');
+  div.className = 'message assistant-message typing-indicator';
+  messages.appendChild(div);
   scrollToBottom();
-  return typingDiv;
+  return div;
 }
 
 function scrollToBottom() {
