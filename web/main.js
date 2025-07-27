@@ -2,6 +2,7 @@ import { streamGemini } from './gemini-api.js';
 import { generateMermaid } from './generateMermaid.js';
 import { detectSpeakingTestIntent, initiateSpeakingTest } from './speakingTest.js';
 
+
 // DOM elements
 const form = document.querySelector('.input-form');
 const messageInput = document.querySelector('.message-input');
@@ -32,22 +33,16 @@ document.addEventListener('DOMContentLoaded', () => {
   messageInput.focus();
   scrollToBottom();
 
-  // Add suggestion click handlers
   const suggestionButtons = document.querySelectorAll('.suggestion-btn');
   suggestionButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const suggestion = btn.dataset.suggestion;
-      messageInput.value = suggestion;
+      messageInput.value = btn.dataset.suggestion;
       messageInput.focus();
     });
   });
 
-  // Handle attach button click
-  attachButton.addEventListener('click', () => {
-    imageUpload.click();
-  });
+  attachButton.addEventListener('click', () => imageUpload.click());
 
-  // Handle file selection
   imageUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
@@ -58,8 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
           mimeType: file.type,
           dataUrl: event.target.result
         };
-
-        // Show preview
         attachedPreview.src = event.target.result;
         attachedImageDiv.style.display = 'block';
       };
@@ -67,39 +60,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle remove attachment
   removeAttachmentBtn.addEventListener('click', () => {
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
     imageUpload.value = '';
   });
 
-  // Handle form submission
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const message = messageInput.value.trim();
+    if (!message && !attachedImageData) return;
 
-    if (!message && !attachedImageData) {
-      return;
-    }
-
-    // Disable form
     messageInput.disabled = true;
     sendButton.disabled = true;
 
-    // Add user message to chat
     addUserMessage(message, attachedImageData?.dataUrl);
+    messageInput.value = '';
+
+    const currentAttachment = attachedImageData;
 
     // Clear form immediately after adding user message
     messageInput.value = '';
-
-    // Clear attachment
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
     imageUpload.value = '';
-
-    // Add typing indicator
     const typingElement = addTypingIndicator();
 
     // Check for speaking test intent first
@@ -116,6 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
+      const isAssessmentRequest = /(quiz|test|assessment|mcq|questions|evaluate|evaluate me|assess me|test me)/i.test(message) && currentAttachment;
+
+      if (isAssessmentRequest) {
+        typingElement.remove();
+        showAssessmentOptions(currentAttachment, message);
+        return;
       // Prepare API request
       const parts = [];
 
@@ -157,7 +147,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
       parts.push({ text: message });
+      const routerResponse = await streamGemini({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [{ text: `Analyze if this request would benefit from a diagram/flowchart/visualization. 
+          Respond with YES if any of these are true:
+          1. It describes a process or cycle (like photosynthesis, water cycle, etc.)
+          2. It involves steps or stages in a sequence
+          3. It describes relationships between components
+          4. It explains a system or mechanism
+          5. It contains words like: process, cycle, steps, stages, flow, mechanism
+          6. It's explaining a scientific concept with multiple parts
+          
+          Only respond with "YES" or "NO": "${message}"` }]
+        }]
+      });
 
+      let shouldGenerateDiagram = false;
+      for await (let chunk of routerResponse) {
+        if (chunk.trim().toUpperCase() === 'YES') {
+          shouldGenerateDiagram = true;
+          break;
+        }
+      }
+
+      if (shouldGenerateDiagram) {
+        const diagramCode = await generateMermaid(message);
+        const assistantElement = addAssistantMessage('');
+        renderMermaidDiagram(diagramCode, assistantElement.querySelector('.message-content'));
+        return;
+      }
+
+      const parts = [{ text: message }];
+      const contents = [
+        { role: 'user', parts: [{ text: "You are Sahayak, a helpful AI assistant. Please introduce yourself as Sahayak and be friendly and helpful." }] },
+        { role: 'model', parts: [{ text: "Hello! I'm Sahayak, your AI assistant. I'm here to help you with any questions or tasks you have. How can I assist you today?" }] },
+        { role: 'user', parts }
+      ];
 
       // Add the current user message to conversation history before making the API call
       conversationHistory.push({
@@ -169,13 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
         contents: conversationHistory,
       });
 
-      // Remove typing indicator and add assistant message
+      const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
       typingElement.remove();
       const assistantElement = addAssistantMessage('');
       const contentElement = assistantElement.querySelector('.message-content');
-
-      // Stream response
-      let buffer = [];
+      const buffer = [];
       const md = new markdownit();
       let fullContent = '';
       for await (let chunk of stream) {
@@ -184,7 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
         contentElement.innerHTML = md.render(buffer.join(''));
         scrollToBottom();
       }
-
       // Generate diagram if needed, after the text response
       if (shouldGenerateDiagram) {
         try {
@@ -212,9 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         role: 'model',
         parts: [{ text: fullContent }]
       });
-
     } catch (error) {
-      // Remove typing indicator and show error
       typingElement.remove();
       const errorMessage = `Sorry, I encountered an error: ${error.message}`;
       addAssistantMessage(errorMessage);
@@ -223,14 +245,12 @@ document.addEventListener('DOMContentLoaded', () => {
         parts: [{ text: errorMessage }]
       });
     } finally {
-      // Re-enable form
       messageInput.disabled = false;
       sendButton.disabled = false;
       messageInput.focus();
     }
   });
 
-  // Handle Enter key (without Shift)
   messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -277,46 +297,120 @@ function addUserMessage(text, imageUrl = null) {
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message user-message';
 
-  let content = '';
-  if (imageUrl) {
-    content += `<img src="${imageUrl}" class="message-image" alt="User uploaded image">`;
-  }
-  if (text) {
-    content += `<p>${escapeHtml(text)}</p>`;
-  }
 
-  messageDiv.innerHTML = `
-    <div class="message-content">
-      ${content}
-    </div>
-  `;
+function showAssessmentOptions(imageData, userMessage) {
+  const assistantElement = addAssistantMessage('<strong>Select the type of assessment you want:</strong>', true);
+  const container = document.createElement('div');
+  container.className = 'assessment-options';
 
-  messages.appendChild(messageDiv);
-  scrollToBottom();
-  return messageDiv;
+  const types = ['MCQs', 'Fill in the Blanks', 'Short Answers'];
+  types.forEach(type => {
+    const btn = document.createElement('button');
+    btn.textContent = type;
+    btn.className = 'btn assessment-btn';
+    btn.addEventListener('click', () => generateAssessment(type, imageData, userMessage, assistantElement));
+    container.appendChild(btn);
+  });
+
+  assistantElement.querySelector('.message-content').appendChild(container);
 }
 
-function addAssistantMessage(text) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message assistant-message';
-  messageDiv.innerHTML = `
-    <div class="message-content">
-      ${text}
-    </div>
-  `;
+async function generateAssessment(type, imageData, userMessage, assistantElement) {
+  const promptMap = {
+    'MCQs': `Generate 5 multiple choice questions from this textbook page image.`,
+    'Fill in the Blanks': `Generate 5 fill-in-the-blank questions based on this image.`,
+    'Short Answers': `Generate 5 short answer questions from the textbook page image.`
+  };
 
-  messages.appendChild(messageDiv);
+  const parts = [
+    {
+      inline_data: {
+        mime_type: imageData.mimeType,
+        data: imageData.base64
+      }
+    },
+    { text: promptMap[type] }
+  ];
+
+  const contents = [
+    { role: 'user', parts }
+  ];
+
+  const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
+  const contentElement = assistantElement.querySelector('.message-content');
+  contentElement.innerHTML = `<strong>${type}:</strong><br>`;
+  const buffer = [];
+  const md = new markdownit();
+
+  for await (let chunk of stream) {
+    buffer.push(chunk);
+    const rendered = md.render(buffer.join('').replace(/\([a-d]\)\s*/g, '\n$& '));
+    contentElement.innerHTML = rendered;
+    scrollToBottom();
+  }
+}
+
+// Utility
+function renderMermaidDiagram(code, container) {
+  const mermaidDiv = document.createElement('div');
+  mermaidDiv.className = 'mermaid';
+  mermaidDiv.textContent = code.trim();
+  const codeBox = document.createElement('pre');
+  codeBox.textContent = mermaidDiv.textContent;
+  container.innerHTML = '';
+  container.appendChild(mermaidDiv);
+  container.appendChild(document.createElement('hr'));
+  container.appendChild(codeBox);
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false });
+    window.mermaid.init(undefined, mermaidDiv);
+  }
+}
+
+function addUserMessage(text, imageUrl = null) {
+  const div = document.createElement('div');
+  div.className = 'message user-message';
+  div.innerHTML = `
+    <div class="message-content">
+      ${imageUrl ? `<img src="${imageUrl}" class="message-image">` : ''}
+      ${text ? `<p>${escapeHtml(text)}</p>` : ''}
+    </div>`;
+  messages.appendChild(div);
   scrollToBottom();
-  return messageDiv;
+  return div;
+}
+
+function addAssistantMessage(content, isHTML = false) {
+  const messageElement = document.createElement('div');
+  messageElement.className = 'message assistant-message';
+
+  const messageContent = document.createElement('div');
+  messageContent.className = 'message-content';
+
+  // 🛠️ Allow HTML or plain text rendering
+  if (isHTML) {
+    messageContent.innerHTML = content;
+  } else {
+    messageContent.textContent = content;
+  }
+
+  messageElement.appendChild(messageContent);
+  document.getElementById('messages').appendChild(messageElement);
+  return messageElement;
 }
 
 function addTypingIndicator() {
+  const div = document.createElement('div');
+  div.className = 'message assistant-message typing-indicator';
+  messages.appendChild(div);
+
   const typingDiv = document.createElement('div');
   typingDiv.className = 'message assistant-message typing-indicator';
 
   messages.appendChild(typingDiv);
+
   scrollToBottom();
-  return typingDiv;
+  return div;
 }
 
 function scrollToBottom() {

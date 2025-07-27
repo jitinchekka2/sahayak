@@ -2,8 +2,8 @@
 API Integration for Parent-Teacher Meeting System
 Extends the existing Flask app with student data management endpoints
 """
-from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 import google.generativeai as genai
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
 import json
 import os
 from dotenv import load_dotenv
@@ -562,6 +562,8 @@ def create_enhanced_app():
     @app.route("/api/generate_mermaid", methods=["POST"])
     def generate_mermaid():
         data = request.json
+        prompt = data.get("prompt")
+
         if not data or not isinstance(data, dict):
             return jsonify({"error": "Invalid request data"}), 400
         prompt = data.get("prompt")
@@ -727,7 +729,6 @@ def create_enhanced_app():
         except Exception as e:
             print(f"An error occurred: {e}")
             return jsonify({"error": str(e)}), 500
-
     return app
 
 if __name__ == "__main__":
