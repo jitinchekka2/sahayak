@@ -92,6 +92,18 @@ Access the deployed application at: [https://agentic-ai-hackathon-467108.web.app
 - **AI**: Google Generative AI (Gemini)
 - **Deployment**: Firebase Hosting and Functions
 
+## Features
+1. **AI-Generated Talking Points**: Automatically analyzes student data to identify key discussion points categorized by academic performance, behavioral aspects, social development, and goals.
+<img> src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/talking_points.png" alt="AI-Generated Talking Points" width="600">
+2. **Meeting Dashboard**: An intuitive interface for teachers to select students and view personalized talking points.
+<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/meeting_dashboard.png" alt="Meeting Dashboard" width="600">
+3. **Downloadable Meeting Agendas**: Generate and download structured meeting agendas for each student.
+<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/download_agenda.png" alt="Downloadable Meeting Agendas" width="600">
+4. **AI Meeting Summaries**: Generate comprehensive meeting summaries using Gemini AI.
+<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/meeting_summary.png" alt="AI Meeting Summaries" width="600">
+5. **Quiz and Speaking Practice**: Interactive speaking test and pronunciation evaluation for students.
+<img src="https://raw.githubusercontent.com/jitinchekka/sahayak/firebase-host/staticfiles/speaking_test.png" alt="Quiz and Speaking Practice" width="600">
+6. **
 ## License
 
 This project is licensed under the MIT
