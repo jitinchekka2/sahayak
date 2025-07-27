@@ -1,4 +1,4 @@
-# Sahayak - AI-Powered Parent-Teacher Meeting Assistant
+# Sahayak - AI-Powered Teaching Assistant
 
 Sahayak is an AI-powered assistant designed to help teachers prepare for and conduct effective parent-teacher meetings. It analyzes student data to generate personalized talking points, meeting agendas, and summaries.
 
