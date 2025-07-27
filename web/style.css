@@ -180,7 +180,8 @@ main {
   box-shadow: 0 2px 6px rgba(66, 133, 244, 0.2);
 }
 
-.attach-btn {
+.attach-btn,
+.mic-btn {
   background: none;
   border: none;
   cursor: pointer;
@@ -194,9 +195,30 @@ main {
   margin-right: 8px;
 }
 
-.attach-btn:hover {
+.attach-btn:hover,
+.mic-btn:hover {
   background: #f1f3f4;
   color: #4285f4;
+}
+
+.mic-btn.recording {
+  background-color: rgba(234, 67, 53, 0.1);
+  color: #ea4335;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(234, 67, 53, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+  }
 }
 
 .message-input {

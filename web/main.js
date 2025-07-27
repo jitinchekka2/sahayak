@@ -7,6 +7,7 @@ const form = document.querySelector('.input-form');
 const messageInput = document.querySelector('.message-input');
 const messages = document.querySelector('.messages');
 const attachButton = document.querySelector('#attach-button');
+const micButton = document.querySelector('#mic-button');
 const imageUpload = document.querySelector('#image-upload');
 const attachedImageDiv = document.querySelector('#attached-image');
 const attachedPreview = document.querySelector('#attached-preview');
@@ -16,6 +17,8 @@ const suggestionsContainer = document.querySelector('.suggestions');
 
 // State
 let attachedImageData = null;
+let isRecording = false;
+let recognition = null;
 let conversationHistory = [
   {
     role: 'user',
@@ -27,10 +30,81 @@ let conversationHistory = [
   }
 ];
 
+// Initialize speech recognition
+function initSpeechRecognition() {
+  // Browser compatibility for Speech Recognition API
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = function () {
+      isRecording = true;
+      micButton.classList.add('recording');
+    };
+
+    recognition.onresult = function (event) {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
+
+      messageInput.value = transcript;
+    };
+
+    recognition.onerror = function (event) {
+      console.error('Speech recognition error:', event.error);
+      stopRecording();
+    };
+
+    recognition.onend = function () {
+      stopRecording();
+    };
+  } else {
+    micButton.style.display = 'none';
+    console.warn('Speech recognition not supported in this browser');
+  }
+}
+
+function toggleRecording() {
+  if (!recognition) {
+    initSpeechRecognition();
+  }
+
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  if (recognition) {
+    messageInput.placeholder = "Listening...";
+    recognition.start();
+  }
+}
+
+function stopRecording() {
+  if (recognition) {
+    recognition.stop();
+    isRecording = false;
+    micButton.classList.remove('recording');
+    messageInput.placeholder = "Enter a prompt for Sahayak";
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   messageInput.focus();
   scrollToBottom();
+
+  // Initialize speech recognition if available
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    initSpeechRecognition();
+  }
 
   // Add suggestion click handlers
   const suggestionButtons = document.querySelectorAll('.suggestion-btn');
@@ -46,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
   attachButton.addEventListener('click', () => {
     imageUpload.click();
   });
+
+  // Handle mic button click
+  micButton.addEventListener('click', toggleRecording);
 
   // Handle file selection
   imageUpload.addEventListener('change', (e) => {
@@ -78,6 +155,11 @@ document.addEventListener('DOMContentLoaded', () => {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    // Stop recording if active
+    if (isRecording) {
+      stopRecording();
+    }
+
     const message = messageInput.value.trim();
 
     if (!message && !attachedImageData) {
@@ -107,10 +189,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSpeakingIntent = await detectSpeakingTestIntent(message, conversationHistory);
       if (isSpeakingIntent) {
         console.log("Detected speaking test intent:", message);
-        addUserMessage(message);
         messageInput.value = '';
-        await initiateSpeakingTest(addAssistantMessage, scrollToBottom, conversationHistory);
-        messageInput.focus();
+
+        // Remove typing indicator before starting the speaking test
+        typingElement.remove();
+
+        try {
+          await initiateSpeakingTest(addAssistantMessage, scrollToBottom, conversationHistory);
+        } finally {
+          // Make sure form is re-enabled even after speaking test
+          messageInput.disabled = false;
+          sendButton.disabled = false;
+          messageInput.focus();
+        }
         return;
       }
     }
