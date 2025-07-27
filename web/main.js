@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear form immediately after adding user message
     messageInput.value = '';
 
+    const currentAttachment = attachedImageData;
     // Clear attachment
     attachedImageData = null;
     attachedImageDiv.style.display = 'none';
@@ -206,9 +207,96 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    //  Image attachment handling
+    console.log('Attached image data:', attachedImageData);
     try {
-      // Prepare API request
-      const parts = [];
+      const isAssessmentRequest = /(quiz|test|assessment|mcq|questions|evaluate|evaluate me|assess me|test me)/i.test(message);
+      const hasImage = !!currentAttachment;
+
+      if (hasImage && isAssessmentRequest) {
+        typingElement.remove();
+
+        // Add user message to conversation history for assessment requests
+        const parts = [
+          {
+            inline_data: {
+              mime_type: currentAttachment.mimeType,
+              data: currentAttachment.base64
+            }
+          },
+          { text: message }
+        ];
+
+        conversationHistory.push({
+          role: 'user',
+          parts: parts
+        });
+
+        showAssessmentOptions(currentAttachment, message);
+        return;
+      }
+
+      if (hasImage && !isAssessmentRequest) {
+        typingElement.remove();
+        const assistantElement = addAssistantMessage('Analyzing the image...');
+        const contentElement = assistantElement.querySelector('.message-content');
+
+        const parts = [
+          {
+            inline_data: {
+              mime_type: currentAttachment.mimeType,
+              data: currentAttachment.base64
+            }
+          },
+          { text: message ? `Please explain the content in this image. The user also said: "${message}"` : "Please explain the content in this image." }
+        ];
+
+        // Add user message to conversation history
+        conversationHistory.push({
+          role: 'user',
+          parts: parts
+        });
+
+        const contents = [...conversationHistory];
+
+        try {
+          const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
+
+          const buffer = [];
+          const md = new markdownit();
+          let fullContent = '';
+
+          for await (let chunk of stream) {
+            buffer.push(chunk);
+            fullContent += chunk;
+            contentElement.innerHTML = md.render(buffer.join(''));
+            scrollToBottom();
+          }
+
+          // Add assistant response to conversation history
+          conversationHistory.push({
+            role: 'model',
+            parts: [{ text: fullContent }]
+          });
+
+        } catch (err) {
+          const errorMessage = `Failed to analyze the image. ${err.message}`;
+          contentElement.innerHTML = `<p style="color: red">${errorMessage}</p>`;
+
+          // Add error to conversation history
+          conversationHistory.push({
+            role: 'model',
+            parts: [{ text: errorMessage }]
+          });
+        } finally {
+          // Re-enable form
+          messageInput.disabled = false;
+          sendButton.disabled = false;
+          messageInput.focus();
+        }
+
+        return;
+      }
 
       // First, let's ask the LLM to determine if this is a diagram generation request
       const routerResponse = await streamGemini({
@@ -239,11 +327,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Always prepare regular assistant query
-      if (attachedImageData) {
+      const parts = [];
+      if (currentAttachment) {
         parts.push({
           inline_data: {
-            mime_type: attachedImageData.mimeType,
-            data: attachedImageData.base64
+            mime_type: currentAttachment.mimeType,
+            data: currentAttachment.base64
           }
         });
       }

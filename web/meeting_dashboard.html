@@ -394,6 +394,13 @@
 <body>
     <div class="meeting-dashboard">
         <div class="dashboard-header">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <button class="btn btn-secondary" onclick="goBack()"
+                    style="background-color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    ← Back to Main
+                </button>
+                <div style="flex: 1;"></div>
+            </div>
             <h1>🏫 Sahayak - Parent-Teacher Meeting Assistant</h1>
             <p>AI-Powered Talking Points Generator for Effective Parent Conversations</p>
         </div>
@@ -854,6 +861,16 @@
             setTimeout(() => {
                 notification.remove();
             }, 3000);
+        }
+
+        function goBack() {
+            // Check if there's a previous page in browser history
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // Fallback: navigate to main page (assumes main page is at root or index.html)
+                window.location.href = 'index.html';
+            }
         }
     </script>
 

@@ -555,16 +555,114 @@ def create_enhanced_app():
                 req_body = request.get_json()
                 contents = req_body.get("contents")
                 model_name = req_body.get("model")
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(contents, stream=True)
+
+                # Debug logging
+                print(f"🔍 Processing request with model: {model_name}")
+                print(
+                    f"🔍 Contents structure: {json.dumps(contents, indent=2)[:500]}...")
+
+                # Process contents to handle images properly
+                processed_contents = []
+                for content in contents:
+                    processed_content = {
+                        "role": content.get("role"),
+                        "parts": []
+                    }
+
+                    for part in content.get("parts", []):
+                        if "inline_data" in part:
+                            # Handle image data
+                            mime_type = part['inline_data']['mime_type']
+                            data_length = len(part['inline_data']['data'])
+                            print(
+                                f"🖼️ Processing image with mime_type: {mime_type}, data length: {data_length}")
+
+                            # Validate image data
+                            if not part['inline_data']['data']:
+                                print("⚠️ Warning: Image data is empty")
+                                continue
+
+                            processed_content["parts"].append({
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": part["inline_data"]["data"]
+                                }
+                            })
+                        elif "text" in part:
+                            # Handle text data
+                            print(
+                                f"📝 Processing text: {part['text'][:100]}...")
+                            processed_content["parts"].append({
+                                "text": part["text"]
+                            })
+                        else:
+                            # Handle other part types (e.g., just text string)
+                            print(
+                                f"❓ Processing unknown part type: {type(part)}")
+                            processed_content["parts"].append(part)
+
+                    processed_contents.append(processed_content)
+
+                print(
+                    f"✅ Sending {len(processed_contents)} messages to Gemini")
+
+                try:
+                    model = genai.GenerativeModel(model_name)
+
+                    # Check if any content contains images and log
+                    has_images = any(
+                        any("inline_data" in part for part in content.get("parts", []))
+                        for content in processed_contents
+                    )
+                    if has_images:
+                        print(
+                            "🖼️ Request contains images, using vision-capable model")
+
+                    response = model.generate_content(
+                        processed_contents, stream=True)
+                except Exception as model_error:
+                    print(
+                        f"❌ Model creation/generation error: {str(model_error)}")
+                    return jsonify({"error": f"Model error: {str(model_error)}"})
 
                 def stream() -> Generator[str, None, None]:
-                    for chunk in response:
-                        yield 'data: %s\n\n' % json.dumps({"text": chunk.text})
+                    try:
+                        for chunk in response:
+                            # Check if chunk has valid text before accessing it
+                            if hasattr(chunk, 'text') and chunk.text:
+                                yield 'data: %s\n\n' % json.dumps({"text": chunk.text})
+                            elif hasattr(chunk, 'candidates') and chunk.candidates:
+                                # Check for finish reason and handle accordingly
+                                candidate = chunk.candidates[0]
+                                if hasattr(candidate, 'finish_reason'):
+                                    if candidate.finish_reason == 1:  # STOP
+                                        # Normal completion, no more text expected
+                                        break
+                                    elif candidate.finish_reason == 2:  # MAX_TOKENS
+                                        yield 'data: %s\n\n' % json.dumps({"text": "[Response truncated due to length limit]"})
+                                        break
+                                    elif candidate.finish_reason == 3:  # SAFETY
+                                        yield 'data: %s\n\n' % json.dumps({"text": "I cannot process this request due to safety guidelines."})
+                                        break
+                                    elif candidate.finish_reason == 4:  # RECITATION
+                                        yield 'data: %s\n\n' % json.dumps({"text": "I cannot reproduce copyrighted content."})
+                                        break
+                                    else:
+                                        yield 'data: %s\n\n' % json.dumps({"text": f"Response ended with reason: {candidate.finish_reason}"})
+                                        break
+                            else:
+                                # Log unexpected chunk structure for debugging
+                                print(
+                                    f"⚠️ Unexpected chunk structure: {chunk}")
+                    except Exception as stream_error:
+                        print(
+                            f"❌ Error in stream generator: {str(stream_error)}")
+                        yield 'data: %s\n\n' % json.dumps({"error": f"Streaming error: {str(stream_error)}"})
 
                 return stream(), {'Content-Type': 'text/event-stream'}
 
             except Exception as e:
+                print(f"❌ Error in generate_api: {str(e)}")
                 return jsonify({"error": str(e)})
 
         # This should never be reached, but add it for type safety
@@ -621,7 +719,8 @@ def create_enhanced_app():
             for line in lines:
                 line = line.strip()
                 if line.startswith("graph"):
-                    processed_lines.append("graph LR")  # Force left-to-right layout
+                    # Force left-to-right layout
+                    processed_lines.append("graph LR")
                 elif "-->" in line:
                     parts = line.split("-->")
                     if len(parts) == 2:
@@ -635,7 +734,8 @@ def create_enhanced_app():
                             node = node.strip().replace(";", "")
 
                             # Try to extract existing ID and label if present
-                            id_label_match = re.match(r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
+                            id_label_match = re.match(
+                                r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
 
                             if id_label_match:
                                 # If node already has ID and label format
@@ -644,9 +744,11 @@ def create_enhanced_app():
                             else:
                                 # If it's just text or incorrectly formatted
                                 # Clean up any existing brackets
-                                clean_text = re.sub(r'[\[\]\(\)\{\}]', '', node).strip()
+                                clean_text = re.sub(
+                                    r'[\[\]\(\)\{\}]', '', node).strip()
                                 # Create an ID from the text
-                                node_id = re.sub(r'[^A-Za-z0-9_]', '', clean_text.lower())
+                                node_id = re.sub(
+                                    r'[^A-Za-z0-9_]', '', clean_text.lower())
                                 label = clean_text
 
                             # Ensure we have a valid ID
@@ -666,20 +768,21 @@ def create_enhanced_app():
 
             # Log the generated diagram for debugging
             print("Generated Mermaid diagram:", diagram)
-                        
+
             # Only keep the diagram part
             lines = text.splitlines()
             # Find the graph LR line
-            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
+            graph_start = next((i for i, l in enumerate(
+                lines) if l.strip() == "graph LR"), 0)
             diagram_lines = ["graph LR"]  # Start with clean graph LR
-            
+
             # Process each line after graph LR
             for line in lines[graph_start + 1:]:
                 line = line.strip()
                 # Skip empty lines, comments, and non-diagram content
                 if not line or line.startswith("%") or ":" in line:
                     continue
-                    
+
                 # Clean up the line
                 clean_line = (
                     line.strip()
@@ -692,10 +795,10 @@ def create_enhanced_app():
                     if len(parts) == 2:
                         # Ensure proper spacing around arrow
                         clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
-                        diagram_lines.append(clean_line)            
+                        diagram_lines.append(clean_line)
             # Join the lines with proper newlines
             diagram = "\n".join(diagram_lines)
-            
+
             # Log the final diagram for debugging
             print("Final processed diagram:", diagram)
 
