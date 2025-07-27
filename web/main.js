@@ -466,18 +466,75 @@ function addUserMessage(text, imageUrl = null) {
   return messageDiv;
 }
 
-function addAssistantMessage(text) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message assistant-message';
-  messageDiv.innerHTML = `
-    <div class="message-content">
-      ${text}
-    </div>
-  `;
+function addAssistantMessage(content, isHTML = false) {
+  const messageElement = document.createElement('div');
+  messageElement.className = 'message assistant-message';
 
-  messages.appendChild(messageDiv);
-  scrollToBottom();
-  return messageDiv;
+  const messageContent = document.createElement('div');
+  messageContent.className = 'message-content';
+
+  // 🛠️ Allow HTML or plain text rendering
+  if (isHTML) {
+    messageContent.innerHTML = content;
+  } else {
+    messageContent.textContent = content;
+  }
+
+  messageElement.appendChild(messageContent);
+  document.getElementById('messages').appendChild(messageElement);
+  return messageElement;
+}
+
+function showAssessmentOptions(imageData, userMessage) {
+  const assistantElement = addAssistantMessage('<strong>Select the type of assessment you want:</strong>', true);
+  const container = document.createElement('div');
+  container.className = 'assessment-options';
+
+  const types = ['MCQs', 'Fill in the Blanks', 'Short Answers'];
+  types.forEach(type => {
+    const btn = document.createElement('button');
+    btn.textContent = type;
+    btn.className = 'btn assessment-btn';
+    btn.addEventListener('click', () => generateAssessment(type, imageData, userMessage, assistantElement));
+    container.appendChild(btn);
+  });
+
+  assistantElement.querySelector('.message-content').appendChild(container);
+}
+
+async function generateAssessment(type, imageData, userMessage, assistantElement) {
+  const promptMap = {
+    'MCQs': `Generate 5 multiple choice questions from this textbook page image.`,
+    'Fill in the Blanks': `Generate 5 fill-in-the-blank questions based on this image.`,
+    'Short Answers': `Generate 5 short answer questions from the textbook page image.`
+  };
+
+  const parts = [
+    {
+      inline_data: {
+        mime_type: imageData.mimeType,
+        data: imageData.base64
+      }
+    },
+    { text: promptMap[type] }
+  ];
+
+  const contents = [
+    { role: 'user', parts }
+  ];
+
+  const stream = streamGemini({ model: 'gemini-2.0-flash', contents });
+  const contentElement = assistantElement.querySelector('.message-content');
+  contentElement.innerHTML = `<strong>${type}:</strong><br>`;
+  const buffer = [];
+  const md = new markdownit();
+
+  for await (let chunk of stream) {
+    buffer.push(chunk);
+    const rendered = md.render(buffer.join('').replace(/\([a-d]\)\s*/g, '\n$& '));
+    contentElement.innerHTML = rendered;
+    scrollToBottom();
+  }
 }
 
 function addTypingIndicator() {
