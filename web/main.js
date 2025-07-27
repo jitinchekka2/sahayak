@@ -334,11 +334,11 @@ function renderMermaidDiagram(code, container) {
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
   const cleanCode = code
-    .replace(/^[A-Za-z0-9_]+\(([^)]+)\)/gm, '$1') // keeps only text inside (), removes the ID
-    .replace(/\(([^)]+)\)/g, '$1')               // also remove any standalone (...) content
-    .replace(/ {2,}/g, ' ')                      // optional: collapse extra spaces
+    // Convert B(SomeText) ➝ B[SomeText]
+    .replace(/(\b[A-Za-z0-9_]+)\(([^)]+)\)/g, '$1[$2]')
+    .replace(/ {2,}/g, ' ') // collapse extra spaces
     .trim();
-mermaidDiv.textContent = cleanCode; // No regex needed now
+  mermaidDiv.textContent = cleanCode; // No regex needed now
 
   const codeBox = document.createElement('pre');
   codeBox.textContent = mermaidDiv.textContent;
