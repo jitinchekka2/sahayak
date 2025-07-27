@@ -1,5 +1,5 @@
-# Ignore .venv directory
-.venv/
+# Ignore venv directory
+venv/
 # Ignore Python bytecode files
 *.pyc
 # ignore __pycache__ directories
@@ -8,8 +8,12 @@ __pycache__/
 !.gitignore
 #  ignore demo.py file
 demo.py
+#  ignore generate_synthetic_data.py file
+generate_synthetic_data.py
 
 # Ignore tmp directory
 tmp/
 # ignore credentials.json file
 credentials.json
+# .json files in root directory
+*.json

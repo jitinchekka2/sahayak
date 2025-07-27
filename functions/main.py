@@ -1,15 +1,19 @@
-"""
-API Integration for Parent-Teacher Meeting System
-Extends the existing Flask app with student data management endpoints
-"""
-from flask import Flask, jsonify, request, send_file, send_from_directory, Response
+# Welcome to Cloud Functions for Firebase for Python!
+# To get started, simply uncomment the below code or create your own.
+# Deploy with `firebase deploy`
+
+import firebase_functions
+from firebase_functions import https_fn
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response, make_response
 import google.generativeai as genai
 import json
 import os
 from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional, Union, Generator, Tuple
 
-DEFAULT_GENAI_MODEL = "models/gemini-1.5-pro-latest"
+DEFAULT_GENAI_MODEL = "models/gemini-2.5-flash"
+web_dir = os.path.join(os.path.dirname(__file__), '..', 'web')
+
 
 # Import our custom modules - handle optional dependencies
 StudentDatabase = None
@@ -18,21 +22,35 @@ generate_meeting_agenda = None
 
 # Try to import AI talking points (doesn't require Firebase)
 try:
-    from ai_talking_points import TalkingPointsGenerator, generate_meeting_agenda
+    # Try absolute import first (for Firebase Functions)
+    from functions.ai_talking_points import TalkingPointsGenerator, generate_meeting_agenda
     AI_TALKING_POINTS_AVAILABLE = True
     print("✅ AI talking points module loaded")
-except ImportError as e:
-    print(f"⚠️ AI talking points module not available: {e}")
-    AI_TALKING_POINTS_AVAILABLE = False
+except ImportError:
+    try:
+        # Try relative import (for local development)
+        from ai_talking_points import TalkingPointsGenerator, generate_meeting_agenda
+        AI_TALKING_POINTS_AVAILABLE = True
+        print("✅ AI talking points module loaded")
+    except ImportError as e:
+        print(f"⚠️ AI talking points module not available: {e}")
+        AI_TALKING_POINTS_AVAILABLE = False
 
 # Try to import Firebase-dependent modules
 try:
-    from firestore_integration import StudentDatabase
+    # Try absolute import first (for Firebase Functions)
+    from functions.firestore_integration import StudentDatabase
     FIREBASE_AVAILABLE = True
     print("✅ Firebase integration loaded")
-except ImportError as e:
-    print(f"⚠️ Firebase integration not available: {e}")
-    FIREBASE_AVAILABLE = False
+except ImportError:
+    try:
+        # Try relative import (for local development)
+        from firestore_integration import StudentDatabase
+        FIREBASE_AVAILABLE = True
+        print("✅ Firebase integration loaded")
+    except ImportError as e:
+        print(f"⚠️ Firebase integration not available: {e}")
+        FIREBASE_AVAILABLE = False
 
 # Try to import data generator (may have its own dependencies)
 # Removed - synthetic data generation not needed anymore
@@ -522,7 +540,7 @@ def create_enhanced_app():
     # Original routes
     @app.route("/")
     def index():
-        return send_file('web/index.html')
+        return send_from_directory(web_dir, 'index.html')
 
     @app.route("/api/generate", methods=["POST"])
     def generate_api() -> Union[Response, Tuple[Generator[str, None, None], Dict[str, str]]]:
@@ -554,7 +572,7 @@ def create_enhanced_app():
 
     @app.route('/<path:path>')
     def static_files(path):
-        return send_from_directory('web', path)
+        return send_from_directory(web_dir, path)
 
     # Add student management API
     student_api = StudentMeetingAPI(app)
@@ -592,30 +610,32 @@ def create_enhanced_app():
                     .replace("```", "")
                     .strip()
             )
-            
+
             # Process the diagram content
             lines = text.splitlines()
             processed_lines = []
-            
+
             for line in lines:
                 line = line.strip()
                 if line.startswith("graph"):
-                    processed_lines.append("graph LR")  # Force left-to-right layout
+                    # Force left-to-right layout
+                    processed_lines.append("graph LR")
                 elif "-->" in line:
                     parts = line.split("-->")
                     if len(parts) == 2:
                         source = parts[0].strip()
                         target = parts[1].strip()
-                        
+
                         # Clean up nodes and ensure proper ID-label format
                         def clean_node(node):
                             import re
                             # Remove any special characters and extra spaces
                             node = node.strip().replace(";", "")
-                            
+
                             # Try to extract existing ID and label if present
-                            id_label_match = re.match(r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
-                            
+                            id_label_match = re.match(
+                                r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
+
                             if id_label_match:
                                 # If node already has ID and label format
                                 node_id = id_label_match.group(1)
@@ -623,52 +643,55 @@ def create_enhanced_app():
                             else:
                                 # If it's just text or incorrectly formatted
                                 # Clean up any existing brackets
-                                clean_text = re.sub(r'[\[\]\(\)\{\}]', '', node).strip()
+                                clean_text = re.sub(
+                                    r'[\[\]\(\)\{\}]', '', node).strip()
                                 # Create an ID from the text
-                                node_id = re.sub(r'[^A-Za-z0-9_]', '', clean_text.lower())
+                                node_id = re.sub(
+                                    r'[^A-Za-z0-9_]', '', clean_text.lower())
                                 label = clean_text
-                                
+
                             # Ensure we have a valid ID
                             if not node_id:
                                 node_id = f"node_{len(processed_lines)}"
-                            
+
                             # Return properly formatted node with ID and label
                             return f"{node_id}[{label}]"
-                        
+
                         source = clean_node(source)
                         target = clean_node(target)
-                        
+
                         processed_lines.append(f"{source} --> {target}")
-            
+
             # Create the final diagram
             diagram = "\n".join(processed_lines)
-            
+
             # Log the generated diagram for debugging
             print("Generated Mermaid diagram:", diagram)
-            
+
             # Only keep the diagram part
             lines = text.splitlines()
             # Find the graph LR line
-            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
+            graph_start = next((i for i, l in enumerate(
+                lines) if l.strip() == "graph LR"), 0)
             diagram_lines = ["graph LR"]  # Start with clean graph LR
-            
+
             # Process each line after graph LR
             for line in lines[graph_start + 1:]:
                 line = line.strip()
                 # Skip empty lines, comments, and non-diagram content
                 if not line or line.startswith("%") or ":" in line:
                     continue
-                    
+
                 # Clean up the line
                 clean_line = (
                     line.strip()
                         .replace(";", "")  # Remove semicolons
                         .replace("  ", " ")  # Remove double spaces
                 )
-            
+
             # Join the lines with proper newlines
             diagram = "\n".join(diagram_lines)
-            
+
             # Log the final diagram for debugging
             print("Final processed diagram:", diagram)
 
@@ -677,7 +700,7 @@ def create_enhanced_app():
         except Exception as e:
             print("Error in generate_mermaid:", e)  # Debug log
             return jsonify({"error": str(e)}), 500
-    
+
     @app.route("/api/analyze_reading", methods=["POST"])
     def analyze_reading_api():
         if 'audio_file' not in request.files:
@@ -692,9 +715,9 @@ def create_enhanced_app():
         try:
             # Read the audio bytes directly to send them inline
             audio_bytes = audio_file.read()
-            
+
             model = genai.GenerativeModel(DEFAULT_GENAI_MODEL)
-            
+
             # Send audio data inline with the prompt for transcription
             transcription_response = model.generate_content([
                 "Transcribe the following audio.",
@@ -730,6 +753,7 @@ def create_enhanced_app():
 
     return app
 
+
 if __name__ == "__main__":
     app = create_enhanced_app()
     print("🚀 Enhanced Sahayak API with Parent-Teacher Meeting features starting...")
@@ -740,3 +764,14 @@ if __name__ == "__main__":
     print("   GET  /api/students/<id>/download-agenda - Download meeting agenda")
     print("   POST /api/meeting-summary - Generate AI meeting summary")
     app.run(debug=True, port=5000)
+
+# Create the Flask app instance
+app = create_enhanced_app()
+
+# Expose the Flask app as an HTTP function
+
+
+@https_fn.on_request()
+def sahayak(req: https_fn.Request) -> https_fn.Response:
+    with app.request_context(req.environ):
+        return app.full_dispatch_request()

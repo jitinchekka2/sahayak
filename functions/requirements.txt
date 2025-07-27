@@ -1,3 +1,4 @@
+firebase_functions~=0.1.0
 # Parent-Teacher Meeting System Requirements
 
 # Core Flask and API dependencies
@@ -22,7 +23,4 @@ uuid
 datetime
 statistics
 dataclasses
-
-# JSON handling (built-in)
-# typing (built-in)
-# random (built-in)
+gunicorn
