@@ -562,6 +562,8 @@ def create_enhanced_app():
     @app.route("/api/generate_mermaid", methods=["POST"])
     def generate_mermaid():
         data = request.json
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Invalid request data"}), 400
         prompt = data.get("prompt")
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
@@ -580,7 +582,7 @@ def create_enhanced_app():
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(full_prompt)
 
             text = response.text.strip() if response.text else ""
@@ -663,14 +665,6 @@ def create_enhanced_app():
                         .replace(";", "")  # Remove semicolons
                         .replace("  ", " ")  # Remove double spaces
                 )
-                
-                # Only add lines that match the expected format: X --> Y or X[Label] --> Y[Label]
-                if "-->" in clean_line:
-                    parts = clean_line.split("-->")
-                    if len(parts) == 2:
-                        # Ensure proper spacing around arrow
-                        clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
-                        diagram_lines.append(clean_line)
             
             # Join the lines with proper newlines
             diagram = "\n".join(diagram_lines)
