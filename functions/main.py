@@ -583,6 +583,10 @@ def create_enhanced_app():
         if not data or not isinstance(data, dict):
             return jsonify({"error": "Invalid request data"}), 400
         prompt = data.get("prompt")
+
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Invalid request data"}), 400
+        prompt = data.get("prompt")
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
@@ -600,7 +604,7 @@ def create_enhanced_app():
 
         full_prompt = f"{system_prompt}\n\nUser request: \"{prompt}\"\n\nMermaid diagram:"
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(full_prompt)
 
             text = response.text.strip() if response.text else ""
@@ -610,7 +614,6 @@ def create_enhanced_app():
                     .replace("```", "")
                     .strip()
             )
-
             # Process the diagram content
             lines = text.splitlines()
             processed_lines = []
@@ -618,8 +621,7 @@ def create_enhanced_app():
             for line in lines:
                 line = line.strip()
                 if line.startswith("graph"):
-                    # Force left-to-right layout
-                    processed_lines.append("graph LR")
+                    processed_lines.append("graph LR")  # Force left-to-right layout
                 elif "-->" in line:
                     parts = line.split("-->")
                     if len(parts) == 2:
@@ -633,8 +635,7 @@ def create_enhanced_app():
                             node = node.strip().replace(";", "")
 
                             # Try to extract existing ID and label if present
-                            id_label_match = re.match(
-                                r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
+                            id_label_match = re.match(r'([A-Za-z0-9_]+)\s*\[(.*?)\]', node)
 
                             if id_label_match:
                                 # If node already has ID and label format
@@ -643,11 +644,9 @@ def create_enhanced_app():
                             else:
                                 # If it's just text or incorrectly formatted
                                 # Clean up any existing brackets
-                                clean_text = re.sub(
-                                    r'[\[\]\(\)\{\}]', '', node).strip()
+                                clean_text = re.sub(r'[\[\]\(\)\{\}]', '', node).strip()
                                 # Create an ID from the text
-                                node_id = re.sub(
-                                    r'[^A-Za-z0-9_]', '', clean_text.lower())
+                                node_id = re.sub(r'[^A-Za-z0-9_]', '', clean_text.lower())
                                 label = clean_text
 
                             # Ensure we have a valid ID
@@ -667,31 +666,36 @@ def create_enhanced_app():
 
             # Log the generated diagram for debugging
             print("Generated Mermaid diagram:", diagram)
-
+                        
             # Only keep the diagram part
             lines = text.splitlines()
             # Find the graph LR line
-            graph_start = next((i for i, l in enumerate(
-                lines) if l.strip() == "graph LR"), 0)
+            graph_start = next((i for i, l in enumerate(lines) if l.strip() == "graph LR"), 0)
             diagram_lines = ["graph LR"]  # Start with clean graph LR
-
+            
             # Process each line after graph LR
             for line in lines[graph_start + 1:]:
                 line = line.strip()
                 # Skip empty lines, comments, and non-diagram content
                 if not line or line.startswith("%") or ":" in line:
                     continue
-
+                    
                 # Clean up the line
                 clean_line = (
                     line.strip()
                         .replace(";", "")  # Remove semicolons
                         .replace("  ", " ")  # Remove double spaces
                 )
-
+                # Only add lines that match the expected format: X --> Y or X[Label] --> Y[Label]
+                if "-->" in clean_line:
+                    parts = clean_line.split("-->")
+                    if len(parts) == 2:
+                        # Ensure proper spacing around arrow
+                        clean_line = f"{parts[0].strip()} --> {parts[1].strip()}"
+                        diagram_lines.append(clean_line)            
             # Join the lines with proper newlines
             diagram = "\n".join(diagram_lines)
-
+            
             # Log the final diagram for debugging
             print("Final processed diagram:", diagram)
 

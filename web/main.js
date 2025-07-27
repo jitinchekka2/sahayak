@@ -331,36 +331,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderMermaidDiagram(code, container) {
-  // Clean up the code - remove any markdown code blocks
-  const cleanCode = code.replace(/```mermaid\n?/g, '').replace(/```\n?/g, '').trim();
-
   const mermaidDiv = document.createElement('div');
   mermaidDiv.className = 'mermaid';
-  mermaidDiv.textContent = cleanCode;
+  const cleanCode = code
+    .replace(/^[A-Za-z0-9_]+\(([^)]+)\)/gm, '$1') // keeps only text inside (), removes the ID
+    .replace(/\(([^)]+)\)/g, '$1')               // also remove any standalone (...) content
+    .replace(/ {2,}/g, ' ')                      // optional: collapse extra spaces
+    .trim();
+mermaidDiv.textContent = cleanCode; // No regex needed now
+
+  const codeBox = document.createElement('pre');
+  codeBox.textContent = mermaidDiv.textContent;
 
   container.innerHTML = '';
   container.appendChild(mermaidDiv);
+  container.appendChild(document.createElement('hr'));
+  container.appendChild(codeBox);
 
-  // Initialize and render mermaid
   if (window.mermaid) {
-    window.mermaid.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose'
-    });
-
-    // Generate a unique id for this diagram
-    const diagramId = 'mermaid-diagram-' + Date.now();
-    mermaidDiv.id = diagramId;
-
-    try {
-      window.mermaid.init(undefined, mermaidDiv);
-    } catch (error) {
-      console.error('Mermaid rendering error:', error);
-      container.innerHTML = `<p style="color: #f44336;">Error rendering diagram: ${error.message}</p>`;
-    }
-  } else {
-    container.innerHTML = '<p style="color: #f44336;">Mermaid library not loaded</p>';
+    window.mermaid.initialize({ startOnLoad: false });
+    window.mermaid.init(undefined, mermaidDiv);
   }
 }
 // Helper functions
